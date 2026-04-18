@@ -71,36 +71,39 @@ func parseFile(path string, seen map[string]struct{}) ([]UsageEntry, error) {
 	defer f.Close()
 
 	var entries []UsageEntry
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+	reader := bufio.NewReader(f)
 
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		var raw rawEntry
-		if err := json.Unmarshal(line, &raw); err != nil {
-			log.Printf("warn: skipping malformed line in %s: %v", path, err)
-			continue
+	for {
+		line, err := reader.ReadBytes('\n')
+		if len(line) > 0 {
+			var raw rawEntry
+			if jsonErr := json.Unmarshal(line, &raw); jsonErr != nil {
+				log.Printf("warn: skipping malformed line in %s: %v", path, jsonErr)
+			} else if raw.Type == "assistant" && raw.Message != nil && raw.Message.Usage != nil {
+				messageID := raw.Message.ID
+				if messageID == "" {
+					messageID = raw.UUID
+				}
+				if _, dup := seen[messageID]; !dup {
+					seen[messageID] = struct{}{}
+					entries = append(entries, UsageEntry{
+						MessageID:                messageID,
+						Timestamp:                raw.Timestamp,
+						Model:                    raw.Message.Model,
+						InputTokens:              raw.Message.Usage.InputTokens,
+						OutputTokens:             raw.Message.Usage.OutputTokens,
+						CacheCreationInputTokens: raw.Message.Usage.CacheCreationInputTokens,
+						CacheReadInputTokens:     raw.Message.Usage.CacheReadInputTokens,
+					})
+				}
+			}
 		}
-		if raw.Type != "assistant" || raw.Message == nil || raw.Message.Usage == nil {
-			continue
+		if err != nil {
+			if err.Error() == "EOF" {
+				break
+			}
+			return nil, err
 		}
-		messageID := raw.Message.ID
-		if messageID == "" {
-			messageID = raw.UUID
-		}
-		if _, dup := seen[messageID]; dup {
-			continue
-		}
-		seen[messageID] = struct{}{}
-		entries = append(entries, UsageEntry{
-			MessageID:                messageID,
-			Timestamp:                raw.Timestamp,
-			Model:                    raw.Message.Model,
-			InputTokens:              raw.Message.Usage.InputTokens,
-			OutputTokens:             raw.Message.Usage.OutputTokens,
-			CacheCreationInputTokens: raw.Message.Usage.CacheCreationInputTokens,
-			CacheReadInputTokens:     raw.Message.Usage.CacheReadInputTokens,
-		})
 	}
-	return entries, scanner.Err()
+	return entries, nil
 }
