@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
 )
+
+var jst = time.FixedZone("JST", 9*60*60)
 
 type jsonOutput struct {
 	TokensUsed    int     `json:"tokens_used"`
@@ -36,8 +39,8 @@ func main() {
 			UsageRatio: result.UsageRatio,
 		}
 		if result.ActiveBlock != nil {
-			out.BlockStartsAt = result.ActiveBlock.StartTime.Format("2006-01-02T15:04:05Z")
-			out.BlockEndsAt = result.ActiveBlock.EndTime.Format("2006-01-02T15:04:05Z")
+			out.BlockStartsAt = result.ActiveBlock.StartTime.In(jst).Format("2006-01-02T15:04:05+09:00")
+			out.BlockEndsAt = result.ActiveBlock.EndTime.In(jst).Format("2006-01-02T15:04:05+09:00")
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -57,6 +60,6 @@ func main() {
 		return
 	}
 
-	blockEnds := result.ActiveBlock.EndTime.Format("2006-01-02T15:04:05Z")
+	blockEnds := result.ActiveBlock.EndTime.In(jst).Format("2006-01-02T15:04:05+09:00")
 	fmt.Printf("%.1f%% (tokens: %.0fM / %.0fM, block ends at %s)\n", pct, usedM, limitM, blockEnds)
 }

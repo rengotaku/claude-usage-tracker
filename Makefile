@@ -1,4 +1,4 @@
-.PHONY: build test lint clean install uninstall status
+.PHONY: build test lint clean install uninstall status db
 
 build:
 	CGO_ENABLED=0 go build ./...
@@ -23,3 +23,7 @@ uninstall:
 
 status:
 	systemctl --user status claude-usage-tracker.timer claude-usage-tracker.service || true
+
+DB_PATH ?= $(HOME)/.local/share/claude-usage-tracker/snapshots.db
+db:
+	sqlite3 $(DB_PATH) "SELECT datetime(taken_at,'+9 hours')||'+09:00' AS taken_at_jst, datetime(block_started_at,'+9 hours')||'+09:00' AS block_started_jst, CASE WHEN block_ended_at IS NOT NULL THEN datetime(block_ended_at,'+9 hours')||'+09:00' END AS block_ended_jst, tokens_used, usage_ratio FROM snapshots ORDER BY taken_at DESC LIMIT 10;"
