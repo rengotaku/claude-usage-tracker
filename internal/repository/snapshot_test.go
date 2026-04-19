@@ -1,0 +1,189 @@
+package repository_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/rengotaku/claude-usage-tracker/internal/repository"
+)
+
+func newTestRepo(t *testing.T) *repository.SnapshotRepository {
+	t.Helper()
+	r, err := repository.NewSnapshotRepository(context.Background(), ":memory:")
+	if err != nil {
+		t.Fatalf("new repo: %v", err)
+	}
+	t.Cleanup(func() { r.Close() })
+	return r
+}
+
+func TestSaveAndLatest(t *testing.T) {
+	r := newTestRepo(t)
+	ctx := context.Background()
+
+	now := time.Now().UTC().Truncate(time.Second)
+	end := now.Add(5 * time.Hour)
+	s := repository.Snapshot{
+		TakenAt:        now,
+		BlockStartedAt: now,
+		BlockEndedAt:   &end,
+		TokensUsed:     1000,
+		UsageRatio:     0.5,
+	}
+
+	if err := r.Save(ctx, s); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	got, err := r.Latest(ctx)
+	if err != nil {
+		t.Fatalf("latest: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected snapshot, got nil")
+	}
+
+	if !got.TakenAt.Equal(s.TakenAt) {
+		t.Errorf("TakenAt: got %v, want %v", got.TakenAt, s.TakenAt)
+	}
+	if !got.BlockStartedAt.Equal(s.BlockStartedAt) {
+		t.Errorf("BlockStartedAt: got %v, want %v", got.BlockStartedAt, s.BlockStartedAt)
+	}
+	if got.TokensUsed != s.TokensUsed {
+		t.Errorf("TokensUsed: got %d, want %d", got.TokensUsed, s.TokensUsed)
+	}
+	if got.UsageRatio != s.UsageRatio {
+		t.Errorf("UsageRatio: got %f, want %f", got.UsageRatio, s.UsageRatio)
+	}
+	if got.BlockEndedAt == nil || !got.BlockEndedAt.Equal(*s.BlockEndedAt) {
+		t.Errorf("BlockEndedAt: got %v, want %v", got.BlockEndedAt, s.BlockEndedAt)
+	}
+}
+
+func TestLatestEmpty(t *testing.T) {
+	r := newTestRepo(t)
+	got, err := r.Latest(context.Background())
+	if err != nil {
+		t.Fatalf("latest: %v", err)
+	}
+	if got != nil {
+		t.Errorf("expected nil, got %v", got)
+	}
+}
+
+func TestSaveUpsert(t *testing.T) {
+	r := newTestRepo(t)
+	ctx := context.Background()
+
+	now := time.Now().UTC().Truncate(time.Second)
+	s := repository.Snapshot{
+		TakenAt:        now,
+		BlockStartedAt: now,
+		TokensUsed:     100,
+		UsageRatio:     0.1,
+	}
+	if err := r.Save(ctx, s); err != nil {
+		t.Fatalf("save 1: %v", err)
+	}
+
+	s.TokensUsed = 200
+	s.UsageRatio = 0.2
+	if err := r.Save(ctx, s); err != nil {
+		t.Fatalf("save 2 (upsert): %v", err)
+	}
+
+	got, err := r.Latest(ctx)
+	if err != nil {
+		t.Fatalf("latest: %v", err)
+	}
+	if got.TokensUsed != 200 {
+		t.Errorf("TokensUsed after upsert: got %d, want 200", got.TokensUsed)
+	}
+}
+
+func TestListBetween(t *testing.T) {
+	r := newTestRepo(t)
+	ctx := context.Background()
+
+	base := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := 0; i < 5; i++ {
+		s := repository.Snapshot{
+			TakenAt:        base.Add(time.Duration(i) * time.Hour),
+			BlockStartedAt: base,
+			TokensUsed:     (i + 1) * 100,
+			UsageRatio:     float64(i+1) * 0.1,
+		}
+		if err := r.Save(ctx, s); err != nil {
+			t.Fatalf("save %d: %v", i, err)
+		}
+	}
+
+	from := base.Add(1 * time.Hour)
+	to := base.Add(3 * time.Hour)
+	got, err := r.ListBetween(ctx, from, to)
+	if err != nil {
+		t.Fatalf("list between: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("len: got %d, want 3", len(got))
+	}
+	wantTokens := []int{200, 300, 400}
+	for i, want := range wantTokens {
+		if got[i].TokensUsed != want {
+			t.Errorf("got[%d].TokensUsed: got %d, want %d", i, got[i].TokensUsed, want)
+		}
+	}
+}
+
+func TestLatestReturnsNewest(t *testing.T) {
+	r := newTestRepo(t)
+	ctx := context.Background()
+
+	base := time.Date(2025, 6, 1, 12, 0, 0, 0, time.UTC)
+	older := repository.Snapshot{TakenAt: base, BlockStartedAt: base, TokensUsed: 111, UsageRatio: 0.1}
+	newer := repository.Snapshot{TakenAt: base.Add(time.Hour), BlockStartedAt: base, TokensUsed: 999, UsageRatio: 0.9}
+
+	if err := r.Save(ctx, older); err != nil {
+		t.Fatalf("save older: %v", err)
+	}
+	if err := r.Save(ctx, newer); err != nil {
+		t.Fatalf("save newer: %v", err)
+	}
+
+	got, err := r.Latest(ctx)
+	if err != nil {
+		t.Fatalf("latest: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected snapshot, got nil")
+	}
+	if got.TokensUsed != 999 {
+		t.Errorf("Latest should return newest: got TokensUsed=%d, want 999", got.TokensUsed)
+	}
+}
+
+func TestNullBlockEndedAt(t *testing.T) {
+	r := newTestRepo(t)
+	ctx := context.Background()
+
+	now := time.Now().UTC().Truncate(time.Second)
+	s := repository.Snapshot{
+		TakenAt:        now,
+		BlockStartedAt: now,
+		BlockEndedAt:   nil,
+		TokensUsed:     500,
+		UsageRatio:     0.25,
+	}
+	if err := r.Save(ctx, s); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	got, err := r.Latest(ctx)
+	if err != nil {
+		t.Fatalf("latest: %v", err)
+	}
+	if got.BlockEndedAt != nil {
+		t.Errorf("BlockEndedAt: expected nil, got %v", got.BlockEndedAt)
+	}
+}
