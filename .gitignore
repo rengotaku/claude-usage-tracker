@@ -1,0 +1,15 @@
+# Binaries
+/claude-usage-tracker
+*.exe
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Go test cache
+*.test
+
+# OS
+.DS_Store
+Thumbs.db

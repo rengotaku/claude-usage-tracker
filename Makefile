@@ -1,0 +1,13 @@
+.PHONY: build test lint clean
+
+build:
+	CGO_ENABLED=0 go build ./...
+
+test:
+	CGO_ENABLED=0 go test ./...
+
+lint:
+	golangci-lint run ./...
+
+clean:
+	go clean ./...
