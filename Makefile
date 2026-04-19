@@ -22,4 +22,4 @@ uninstall:
 	systemctl --user daemon-reload
 
 status:
-	systemctl --user status claude-usage-tracker.timer claude-usage-tracker.service
+	systemctl --user status claude-usage-tracker.timer claude-usage-tracker.service || true
