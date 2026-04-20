@@ -30,8 +30,8 @@ func main() {
 
 	snap := repository.Snapshot{
 		TakenAt:    time.Now().UTC(),
-		TokensUsed: result.TokensUsed,
-		UsageRatio: result.UsageRatio,
+		TokensUsed: result.SessionTokens,
+		UsageRatio: result.SessionRatio,
 	}
 	if result.ActiveBlock != nil {
 		snap.BlockStartedAt = result.ActiveBlock.StartTime
@@ -47,8 +47,8 @@ func main() {
 	}
 
 	logger.Info("snapshot saved",
-		"tokens_used", result.TokensUsed,
-		"plan_limit", result.PlanLimit,
-		"usage_ratio", result.UsageRatio,
+		"session_tokens", result.SessionTokens,
+		"session_ratio", result.SessionRatio,
+		"weekly_tokens", result.WeeklyTokens,
 	)
 }
