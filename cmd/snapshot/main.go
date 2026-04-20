@@ -29,9 +29,11 @@ func main() {
 	defer repo.Close()
 
 	snap := repository.Snapshot{
-		TakenAt:    time.Now().UTC(),
-		TokensUsed: result.SessionTokens,
-		UsageRatio: result.SessionRatio,
+		TakenAt:            time.Now().UTC(),
+		TokensUsed:         result.SessionTokens,
+		UsageRatio:         result.SessionRatio,
+		WeeklyTokens:       result.WeeklyTokens,
+		WeeklySonnetTokens: result.WeeklySonnetTokens,
 	}
 	if result.ActiveBlock != nil {
 		snap.BlockStartedAt = result.ActiveBlock.StartTime
