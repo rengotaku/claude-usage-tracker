@@ -1,5 +1,8 @@
 # Binaries
 /claude-usage-tracker
+/current
+/snapshot
+/run
 *.exe
 
 # Database files
