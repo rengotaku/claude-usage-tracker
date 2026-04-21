@@ -1,7 +1,10 @@
-.PHONY: build test lint clean install uninstall status db
+.PHONY: build test lint clean install uninstall status db server
 
 build:
 	CGO_ENABLED=0 go build ./...
+
+server:
+	CGO_ENABLED=0 go run ./cmd/server
 
 test:
 	CGO_ENABLED=0 go test ./...
