@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -16,11 +17,13 @@ const timeLayout = time.RFC3339
 
 // Snapshot represents a point-in-time record of token usage within a block.
 type Snapshot struct {
-	TakenAt        time.Time
-	BlockStartedAt time.Time
-	BlockEndedAt   *time.Time
-	TokensUsed     int
-	UsageRatio     float64
+	TakenAt            time.Time
+	BlockStartedAt     time.Time
+	BlockEndedAt       *time.Time
+	TokensUsed         int
+	UsageRatio         float64
+	WeeklyTokens       int
+	WeeklySonnetTokens int
 }
 
 // SnapshotRepository persists Snapshot records to SQLite.
@@ -66,21 +69,34 @@ func NewSnapshotRepository(ctx context.Context, dbPath string) (*SnapshotReposit
 func (r *SnapshotRepository) migrate(ctx context.Context) error {
 	_, err := r.db.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS snapshots (
-			taken_at         TEXT PRIMARY KEY,
-			block_started_at TEXT NOT NULL,
-			block_ended_at   TEXT,
-			tokens_used      INTEGER NOT NULL,
-			usage_ratio      REAL    NOT NULL
+			taken_at              TEXT PRIMARY KEY,
+			block_started_at      TEXT NOT NULL,
+			block_ended_at        TEXT,
+			tokens_used           INTEGER NOT NULL,
+			usage_ratio           REAL    NOT NULL,
+			weekly_tokens         INTEGER NOT NULL DEFAULT 0,
+			weekly_sonnet_tokens  INTEGER NOT NULL DEFAULT 0
 		)
 	`)
 	if err != nil {
 		return fmt.Errorf("create table: %w", err)
 	}
+
+	// Add weekly columns to existing tables (idempotent).
+	for _, col := range []string{
+		"ALTER TABLE snapshots ADD COLUMN weekly_tokens        INTEGER NOT NULL DEFAULT 0",
+		"ALTER TABLE snapshots ADD COLUMN weekly_sonnet_tokens INTEGER NOT NULL DEFAULT 0",
+	} {
+		if _, err := r.db.ExecContext(ctx, col); err != nil {
+			if !strings.Contains(err.Error(), "duplicate column name") {
+				return fmt.Errorf("alter table: %w", err)
+			}
+		}
+	}
 	return nil
 }
 
 // Save inserts or replaces a Snapshot (upsert by taken_at).
-// Times are truncated to second precision before persisting.
 func (r *SnapshotRepository) Save(ctx context.Context, s Snapshot) error {
 	var endedAt *string
 	if s.BlockEndedAt != nil {
@@ -89,13 +105,15 @@ func (r *SnapshotRepository) Save(ctx context.Context, s Snapshot) error {
 	}
 	_, err := r.db.ExecContext(ctx,
 		`INSERT OR REPLACE INTO snapshots
-			(taken_at, block_started_at, block_ended_at, tokens_used, usage_ratio)
-		 VALUES (?, ?, ?, ?, ?)`,
+			(taken_at, block_started_at, block_ended_at, tokens_used, usage_ratio, weekly_tokens, weekly_sonnet_tokens)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		s.TakenAt.UTC().Truncate(time.Second).Format(timeLayout),
 		s.BlockStartedAt.UTC().Truncate(time.Second).Format(timeLayout),
 		endedAt,
 		s.TokensUsed,
 		s.UsageRatio,
+		s.WeeklyTokens,
+		s.WeeklySonnetTokens,
 	)
 	if err != nil {
 		return fmt.Errorf("save snapshot: %w", err)
@@ -106,7 +124,7 @@ func (r *SnapshotRepository) Save(ctx context.Context, s Snapshot) error {
 // Latest returns the most recently taken Snapshot, or nil if none exists.
 func (r *SnapshotRepository) Latest(ctx context.Context) (*Snapshot, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT taken_at, block_started_at, block_ended_at, tokens_used, usage_ratio
+		`SELECT taken_at, block_started_at, block_ended_at, tokens_used, usage_ratio, weekly_tokens, weekly_sonnet_tokens
 		 FROM snapshots ORDER BY taken_at DESC LIMIT 1`)
 	s, err := scanRow(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -118,7 +136,7 @@ func (r *SnapshotRepository) Latest(ctx context.Context) (*Snapshot, error) {
 // ListBetween returns Snapshots with taken_at in [from, to], ordered ascending.
 func (r *SnapshotRepository) ListBetween(ctx context.Context, from, to time.Time) ([]Snapshot, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT taken_at, block_started_at, block_ended_at, tokens_used, usage_ratio
+		`SELECT taken_at, block_started_at, block_ended_at, tokens_used, usage_ratio, weekly_tokens, weekly_sonnet_tokens
 		 FROM snapshots
 		 WHERE taken_at >= ? AND taken_at <= ?
 		 ORDER BY taken_at`,
@@ -160,13 +178,15 @@ func scanRows(s *sql.Rows) (*Snapshot, error) {
 
 func scan(s scanner) (*Snapshot, error) {
 	var (
-		takenAt        string
-		blockStartedAt string
-		blockEndedAt   *string
-		tokensUsed     int
-		usageRatio     float64
+		takenAt            string
+		blockStartedAt     string
+		blockEndedAt       *string
+		tokensUsed         int
+		usageRatio         float64
+		weeklyTokens       int
+		weeklySonnetTokens int
 	)
-	if err := s.Scan(&takenAt, &blockStartedAt, &blockEndedAt, &tokensUsed, &usageRatio); err != nil {
+	if err := s.Scan(&takenAt, &blockStartedAt, &blockEndedAt, &tokensUsed, &usageRatio, &weeklyTokens, &weeklySonnetTokens); err != nil {
 		return nil, err
 	}
 
@@ -180,10 +200,12 @@ func scan(s scanner) (*Snapshot, error) {
 	}
 
 	snap := &Snapshot{
-		TakenAt:        ta.UTC(),
-		BlockStartedAt: bs.UTC(),
-		TokensUsed:     tokensUsed,
-		UsageRatio:     usageRatio,
+		TakenAt:            ta.UTC(),
+		BlockStartedAt:     bs.UTC(),
+		TokensUsed:         tokensUsed,
+		UsageRatio:         usageRatio,
+		WeeklyTokens:       weeklyTokens,
+		WeeklySonnetTokens: weeklySonnetTokens,
 	}
 	if blockEndedAt != nil {
 		be, err := time.Parse(timeLayout, *blockEndedAt)
