@@ -9,30 +9,52 @@ import (
 
 	"github.com/rengotaku/claude-usage-tracker/internal/blocks"
 	"github.com/rengotaku/claude-usage-tracker/internal/jsonl"
+	"github.com/rengotaku/claude-usage-tracker/internal/plan"
 )
 
 var jst = time.FixedZone("JST", 9*60*60)
 
 // Config holds runtime configuration for usage computation.
 type Config struct {
-	LogDir              string
-	SessionLimit        int // 5-hour block limit (0 = unknown)
-	WeeklyLimit         int // weekly all-models limit (0 = unknown)
-	WeeklySonnetLimit   int // weekly Sonnet-only limit (0 = unknown)
+	LogDir            string
+	SessionLimit      int // 5-hour block limit (0 = unknown)
+	WeeklyLimit       int // weekly all-models limit (0 = unknown)
+	WeeklySonnetLimit int // weekly Sonnet-only limit (0 = unknown)
+
+	// DetectedTier is the rateLimitTier read from ~/.claude/.credentials.json
+	// (empty if the file is missing or unreadable). Surfaced for logging so
+	// users can confirm the detected plan even when env vars override it.
+	DetectedTier string
+	// SessionLimitFromEnv reports whether SessionLimit came from the env var
+	// (true) or from the tier map fallback (false).
+	SessionLimitFromEnv bool
 }
 
-// ConfigFromEnv builds Config from environment variables.
+// ConfigFromEnv builds Config from environment variables, falling back to
+// tier-based session limits detected from ~/.claude/.credentials.json when
+// CLAUDE_USAGE_TRACKER_PLAN_LIMIT is not set. Env vars always win.
 func ConfigFromEnv() Config {
 	logDir := os.Getenv("CLAUDE_USAGE_TRACKER_LOG_DIR")
 	if logDir == "" {
 		home, _ := os.UserHomeDir()
 		logDir = home + "/.claude/projects"
 	}
+
+	envLimit := envInt("CLAUDE_USAGE_TRACKER_PLAN_LIMIT", 0)
+	detectedTier, _ := plan.DetectTier()
+
+	sessionLimit := envLimit
+	if sessionLimit == 0 && detectedTier != "" {
+		sessionLimit = plan.SessionLimitForTier(detectedTier)
+	}
+
 	return Config{
-		LogDir:            logDir,
-		SessionLimit:      envInt("CLAUDE_USAGE_TRACKER_PLAN_LIMIT", 0),
-		WeeklyLimit:       envInt("CLAUDE_USAGE_TRACKER_WEEKLY_LIMIT", 0),
-		WeeklySonnetLimit: envInt("CLAUDE_USAGE_TRACKER_WEEKLY_SONNET_LIMIT", 0),
+		LogDir:              logDir,
+		SessionLimit:        sessionLimit,
+		WeeklyLimit:         envInt("CLAUDE_USAGE_TRACKER_WEEKLY_LIMIT", 0),
+		WeeklySonnetLimit:   envInt("CLAUDE_USAGE_TRACKER_WEEKLY_SONNET_LIMIT", 0),
+		DetectedTier:        detectedTier,
+		SessionLimitFromEnv: envLimit > 0,
 	}
 }
 
