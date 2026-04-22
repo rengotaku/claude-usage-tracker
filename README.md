@@ -15,23 +15,24 @@ Claudeのusage状態を定期的に記録するリポジトリ
 |---|---|---|
 | `CLAUDE_USAGE_TRACKER_LOG_DIR` | `~/.claude/projects` | JSONL ログディレクトリ |
 | `CLAUDE_USAGE_TRACKER_PLAN_LIMIT` | プラン自動検出（下表参照） | 5h セッションのトークン上限 |
-| `CLAUDE_USAGE_TRACKER_WEEKLY_LIMIT` | なし（0 表示） | 週次 全モデル合算上限 |
-| `CLAUDE_USAGE_TRACKER_WEEKLY_SONNET_LIMIT` | なし（0 表示） | 週次 Sonnet 上限 |
+| `CLAUDE_USAGE_TRACKER_WEEKLY_LIMIT` | プラン自動検出（下表参照） | 週次 全モデル合算上限 |
+| `CLAUDE_USAGE_TRACKER_WEEKLY_SONNET_LIMIT` | プラン自動検出（下表参照） | 週次 Sonnet 上限 |
 | `CLAUDE_USAGE_TRACKER_DB` | `~/.local/share/claude-usage-tracker/snapshots.db` | SQLite DB パス |
 
 ## プラン自動検出
 
-`CLAUDE_USAGE_TRACKER_PLAN_LIMIT` 未設定時は `~/.claude/.credentials.json` の `rateLimitTier` からデフォルト値を適用する。
+env 変数未設定時は `~/.claude/.credentials.json` の `rateLimitTier` からデフォルト値を適用する。
 
-| tier | セッション上限 (内蔵値) |
-|---|---|
-| `default_claude_pro` | 19M |
-| `default_claude_max_5x` | 88M |
-| `default_claude_max_20x` | 220M |
+| tier | セッション (5h) | 週次 All | 週次 Sonnet |
+|---|---|---|---|
+| `default_claude_pro` | 19M | — | — |
+| `default_claude_max_5x` | 45M | 833M | 695M |
+| `default_claude_max_20x` | 220M | — | — |
 
-- 数値は Anthropic 非公開の概算値。プラン変更後は `claude login` での再認証が必要（[claude-code#43639](https://github.com/anthropics/claude-code/issues/43639)）。
+- Max 5x の値は web `/usage` の `%` と照合済み (2026-04-22)。
+- Pro / Max 20x のセッション値はコミュニティ実測で未検証、週次は未測定（env で明示指定する）。
+- プラン変更後は `claude login` での再認証が必要（[claude-code#43639](https://github.com/anthropics/claude-code/issues/43639)）。
 - env 変数は常に優先される。
-- 週次 limit はマップなし — env で明示指定する。
 - 検出結果は stderr に JSON ログ（`plan detected`）として出力される。
 
 ## インストール（systemd timer）

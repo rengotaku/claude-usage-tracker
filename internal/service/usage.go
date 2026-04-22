@@ -41,18 +41,28 @@ func ConfigFromEnv() Config {
 	}
 
 	envLimit := envInt("CLAUDE_USAGE_TRACKER_PLAN_LIMIT", 0)
+	envWeekly := envInt("CLAUDE_USAGE_TRACKER_WEEKLY_LIMIT", 0)
+	envWeeklySonnet := envInt("CLAUDE_USAGE_TRACKER_WEEKLY_SONNET_LIMIT", 0)
 	detectedTier, _ := plan.DetectTier()
 
 	sessionLimit := envLimit
 	if sessionLimit == 0 && detectedTier != "" {
 		sessionLimit = plan.SessionLimitForTier(detectedTier)
 	}
+	weeklyLimit := envWeekly
+	if weeklyLimit == 0 && detectedTier != "" {
+		weeklyLimit = plan.WeeklyLimitForTier(detectedTier)
+	}
+	weeklySonnetLimit := envWeeklySonnet
+	if weeklySonnetLimit == 0 && detectedTier != "" {
+		weeklySonnetLimit = plan.WeeklySonnetLimitForTier(detectedTier)
+	}
 
 	return Config{
 		LogDir:              logDir,
 		SessionLimit:        sessionLimit,
-		WeeklyLimit:         envInt("CLAUDE_USAGE_TRACKER_WEEKLY_LIMIT", 0),
-		WeeklySonnetLimit:   envInt("CLAUDE_USAGE_TRACKER_WEEKLY_SONNET_LIMIT", 0),
+		WeeklyLimit:         weeklyLimit,
+		WeeklySonnetLimit:   weeklySonnetLimit,
 		DetectedTier:        detectedTier,
 		SessionLimitFromEnv: envLimit > 0,
 	}

@@ -123,11 +123,54 @@ func TestConfigFromEnv_DetectsPlanWhenEnvUnset(t *testing.T) {
 	if cfg.DetectedTier != "default_claude_max_5x" {
 		t.Errorf("expected detected tier max_5x, got %s", cfg.DetectedTier)
 	}
-	if cfg.SessionLimit != 88_000_000 {
-		t.Errorf("expected session limit 88M, got %d", cfg.SessionLimit)
+	if cfg.SessionLimit != 45_000_000 {
+		t.Errorf("expected session limit 45M (Max 5x), got %d", cfg.SessionLimit)
+	}
+	if cfg.WeeklyLimit != 833_000_000 {
+		t.Errorf("expected weekly limit 833M (Max 5x), got %d", cfg.WeeklyLimit)
+	}
+	if cfg.WeeklySonnetLimit != 695_000_000 {
+		t.Errorf("expected weekly sonnet limit 695M (Max 5x), got %d", cfg.WeeklySonnetLimit)
 	}
 	if cfg.SessionLimitFromEnv {
 		t.Error("expected SessionLimitFromEnv=false (detected, not env)")
+	}
+}
+
+func TestConfigFromEnv_WeeklyEnvWinsOverDetection(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_LIMIT", "900000000")
+	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_SONNET_LIMIT", "700000000")
+	writeCredentials(t, home, `{"claudeAiOauth":{"rateLimitTier":"default_claude_max_5x"}}`)
+
+	cfg := service.ConfigFromEnv()
+	if cfg.WeeklyLimit != 900_000_000 {
+		t.Errorf("expected env weekly 900M, got %d", cfg.WeeklyLimit)
+	}
+	if cfg.WeeklySonnetLimit != 700_000_000 {
+		t.Errorf("expected env sonnet 700M, got %d", cfg.WeeklySonnetLimit)
+	}
+}
+
+func TestConfigFromEnv_UnmappedTierLeavesWeeklyZero(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_LIMIT", "")
+	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_SONNET_LIMIT", "")
+	// Pro weekly limits are not in the map yet.
+	writeCredentials(t, home, `{"claudeAiOauth":{"rateLimitTier":"default_claude_pro"}}`)
+
+	cfg := service.ConfigFromEnv()
+	if cfg.WeeklyLimit != 0 {
+		t.Errorf("expected weekly limit 0 for unmapped tier, got %d", cfg.WeeklyLimit)
+	}
+	if cfg.WeeklySonnetLimit != 0 {
+		t.Errorf("expected weekly sonnet limit 0 for unmapped tier, got %d", cfg.WeeklySonnetLimit)
+	}
+	// Session limit for Pro is still populated.
+	if cfg.SessionLimit != 19_000_000 {
+		t.Errorf("expected session limit 19M (Pro), got %d", cfg.SessionLimit)
 	}
 }
 
