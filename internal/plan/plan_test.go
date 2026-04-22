@@ -69,7 +69,7 @@ func TestSessionLimitForTier(t *testing.T) {
 		want int
 	}{
 		{"default_claude_pro", 19_000_000},
-		{"default_claude_max_5x", 88_000_000},
+		{"default_claude_max_5x", 45_000_000},
 		{"default_claude_max_20x", 220_000_000},
 		{"unknown_tier", 0},
 		{"", 0},
@@ -77,6 +77,44 @@ func TestSessionLimitForTier(t *testing.T) {
 	for _, tt := range tests {
 		if got := plan.SessionLimitForTier(tt.tier); got != tt.want {
 			t.Errorf("SessionLimitForTier(%q) = %d, want %d", tt.tier, got, tt.want)
+		}
+	}
+}
+
+func TestWeeklyLimitForTier(t *testing.T) {
+	tests := []struct {
+		tier string
+		want int
+	}{
+		{"default_claude_max_5x", 833_000_000},
+		// Pro and Max 20x weekly limits are not yet confirmed from /usage
+		// web values; callers must rely on env vars for those tiers.
+		{"default_claude_pro", 0},
+		{"default_claude_max_20x", 0},
+		{"unknown_tier", 0},
+		{"", 0},
+	}
+	for _, tt := range tests {
+		if got := plan.WeeklyLimitForTier(tt.tier); got != tt.want {
+			t.Errorf("WeeklyLimitForTier(%q) = %d, want %d", tt.tier, got, tt.want)
+		}
+	}
+}
+
+func TestWeeklySonnetLimitForTier(t *testing.T) {
+	tests := []struct {
+		tier string
+		want int
+	}{
+		{"default_claude_max_5x", 695_000_000},
+		{"default_claude_pro", 0},
+		{"default_claude_max_20x", 0},
+		{"unknown_tier", 0},
+		{"", 0},
+	}
+	for _, tt := range tests {
+		if got := plan.WeeklySonnetLimitForTier(tt.tier); got != tt.want {
+			t.Errorf("WeeklySonnetLimitForTier(%q) = %d, want %d", tt.tier, got, tt.want)
 		}
 	}
 }
