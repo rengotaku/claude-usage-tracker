@@ -35,6 +35,7 @@ func main() {
 	jsonFlag := len(os.Args) > 1 && os.Args[1] == "--json"
 
 	cfg := service.ConfigFromEnv()
+	logPlanDetection(logger, cfg)
 	result, err := service.Compute(cfg)
 	if err != nil {
 		logger.Error("compute usage", "error", err)
@@ -91,6 +92,24 @@ func weeklyLine(tokens, limit int, ratio float64, resetsAt string) string {
 		return fmt.Sprintf("%.0f%% used (%s / %s, resets %s (Asia/Tokyo))", ratio*100, formatM(tokens), formatM(limit), resetsAt)
 	}
 	return fmt.Sprintf("%s used (resets %s (Asia/Tokyo))", formatM(tokens), resetsAt)
+}
+
+// logPlanDetection surfaces the detected tier and resolved session limit
+// so users can spot misdetection — the rateLimitTier field in
+// ~/.claude/.credentials.json is non-public and can become stale.
+func logPlanDetection(logger *slog.Logger, cfg service.Config) {
+	if cfg.DetectedTier == "" {
+		return
+	}
+	source := "detected"
+	if cfg.SessionLimitFromEnv {
+		source = "env_override"
+	}
+	logger.Info("plan detected",
+		"tier", cfg.DetectedTier,
+		"session_limit", cfg.SessionLimit,
+		"source", source,
+	)
 }
 
 func formatM(n int) string {

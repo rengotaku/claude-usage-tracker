@@ -93,6 +93,8 @@ func TestCompute_WeeklyLimit(t *testing.T) {
 }
 
 func TestConfigFromEnv_Defaults(t *testing.T) {
+	// Isolate HOME so credentials detection cannot interfere.
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("CLAUDE_USAGE_TRACKER_LOG_DIR", "")
 	t.Setenv("CLAUDE_USAGE_TRACKER_PLAN_LIMIT", "")
 
@@ -103,9 +105,68 @@ func TestConfigFromEnv_Defaults(t *testing.T) {
 	if cfg.LogDir == "" {
 		t.Error("expected non-empty log dir")
 	}
+	if cfg.DetectedTier != "" {
+		t.Errorf("expected empty DetectedTier, got %s", cfg.DetectedTier)
+	}
+	if cfg.SessionLimitFromEnv {
+		t.Error("expected SessionLimitFromEnv=false when env unset")
+	}
+}
+
+func TestConfigFromEnv_DetectsPlanWhenEnvUnset(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CLAUDE_USAGE_TRACKER_PLAN_LIMIT", "")
+	writeCredentials(t, home, `{"claudeAiOauth":{"rateLimitTier":"default_claude_max_5x"}}`)
+
+	cfg := service.ConfigFromEnv()
+	if cfg.DetectedTier != "default_claude_max_5x" {
+		t.Errorf("expected detected tier max_5x, got %s", cfg.DetectedTier)
+	}
+	if cfg.SessionLimit != 88_000_000 {
+		t.Errorf("expected session limit 88M, got %d", cfg.SessionLimit)
+	}
+	if cfg.SessionLimitFromEnv {
+		t.Error("expected SessionLimitFromEnv=false (detected, not env)")
+	}
+}
+
+func TestConfigFromEnv_EnvWinsOverDetection(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CLAUDE_USAGE_TRACKER_PLAN_LIMIT", "50000000")
+	writeCredentials(t, home, `{"claudeAiOauth":{"rateLimitTier":"default_claude_max_20x"}}`)
+
+	cfg := service.ConfigFromEnv()
+	if cfg.SessionLimit != 50_000_000 {
+		t.Errorf("expected env-set limit 50M, got %d", cfg.SessionLimit)
+	}
+	if !cfg.SessionLimitFromEnv {
+		t.Error("expected SessionLimitFromEnv=true")
+	}
+	// Detected tier is still reported for visibility, even when overridden.
+	if cfg.DetectedTier != "default_claude_max_20x" {
+		t.Errorf("expected detected tier still surfaced, got %s", cfg.DetectedTier)
+	}
+}
+
+func TestConfigFromEnv_UnknownTier(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CLAUDE_USAGE_TRACKER_PLAN_LIMIT", "")
+	writeCredentials(t, home, `{"claudeAiOauth":{"rateLimitTier":"future_tier"}}`)
+
+	cfg := service.ConfigFromEnv()
+	if cfg.DetectedTier != "future_tier" {
+		t.Errorf("expected tier future_tier, got %s", cfg.DetectedTier)
+	}
+	if cfg.SessionLimit != 0 {
+		t.Errorf("expected 0 session limit for unknown tier, got %d", cfg.SessionLimit)
+	}
 }
 
 func TestConfigFromEnv_EnvOverride(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("CLAUDE_USAGE_TRACKER_LOG_DIR", "/tmp/logs")
 	t.Setenv("CLAUDE_USAGE_TRACKER_PLAN_LIMIT", "53000000")
 	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_LIMIT", "1000000000")
@@ -123,6 +184,18 @@ func TestConfigFromEnv_EnvOverride(t *testing.T) {
 	}
 	if cfg.WeeklySonnetLimit != 500_000_000 {
 		t.Errorf("expected 500000000, got %d", cfg.WeeklySonnetLimit)
+	}
+}
+
+func writeCredentials(t *testing.T, home, body string) {
+	t.Helper()
+	credDir := filepath.Join(home, ".claude")
+	if err := os.MkdirAll(credDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(credDir, ".credentials.json")
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 
