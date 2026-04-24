@@ -21,6 +21,15 @@ type Config struct {
 	WeeklyLimit       int // weekly all-models limit (0 = unknown)
 	WeeklySonnetLimit int // weekly Sonnet-only limit (0 = unknown)
 
+	// WeeklyResetDay is the day of week when the weekly limit resets.
+	// Anthropic uses a per-user rolling 7-day window, so this must be
+	// configured to match the user's actual reset schedule shown on /usage.
+	// Defaults to Tuesday.
+	WeeklyResetDay time.Weekday
+	// WeeklyResetHour is the hour (in JST) when the weekly limit resets.
+	// Defaults to 17 (= 08:00 UTC).
+	WeeklyResetHour int
+
 	// DetectedTier is the rateLimitTier read from ~/.claude/.credentials.json
 	// (empty if the file is missing or unreadable). Surfaced for logging so
 	// users can confirm the detected plan even when env vars override it.
@@ -43,6 +52,8 @@ func ConfigFromEnv() Config {
 	envLimit := envInt("CLAUDE_USAGE_TRACKER_PLAN_LIMIT", 0)
 	envWeekly := envInt("CLAUDE_USAGE_TRACKER_WEEKLY_LIMIT", 0)
 	envWeeklySonnet := envInt("CLAUDE_USAGE_TRACKER_WEEKLY_SONNET_LIMIT", 0)
+	resetDay := envWeekday("CLAUDE_USAGE_TRACKER_WEEKLY_RESET_DAY", time.Tuesday)
+	resetHour := envInt("CLAUDE_USAGE_TRACKER_WEEKLY_RESET_HOUR", 17) // 17 JST = 08:00 UTC
 	detectedTier, _ := plan.DetectTier()
 
 	sessionLimit := envLimit
@@ -63,6 +74,8 @@ func ConfigFromEnv() Config {
 		SessionLimit:        sessionLimit,
 		WeeklyLimit:         weeklyLimit,
 		WeeklySonnetLimit:   weeklySonnetLimit,
+		WeeklyResetDay:      resetDay,
+		WeeklyResetHour:     resetHour,
 		DetectedTier:        detectedTier,
 		SessionLimitFromEnv: envLimit > 0,
 	}
@@ -77,6 +90,21 @@ func envInt(key string, def int) int {
 	return def
 }
 
+var weekdayNames = map[string]time.Weekday{
+	"sunday": time.Sunday, "monday": time.Monday, "tuesday": time.Tuesday,
+	"wednesday": time.Wednesday, "thursday": time.Thursday,
+	"friday": time.Friday, "saturday": time.Saturday,
+}
+
+func envWeekday(key string, def time.Weekday) time.Weekday {
+	if v := os.Getenv(key); v != "" {
+		if wd, ok := weekdayNames[strings.ToLower(v)]; ok {
+			return wd
+		}
+	}
+	return def
+}
+
 // UsageResult holds session and weekly usage metrics.
 type UsageResult struct {
 	// Current 5-hour session block
@@ -86,7 +114,7 @@ type UsageResult struct {
 	SessionEndsAt *time.Time
 	ActiveBlock   *blocks.Block
 
-	// Weekly (since last Friday 08:00 JST)
+	// Weekly (since last reset, configurable per user)
 	WeeklyTokens       int
 	WeeklyLimit        int
 	WeeklyRatio        float64 // 0 if limit unknown
@@ -110,7 +138,7 @@ func Compute(cfg Config) (*UsageResult, error) {
 		SessionLimit:      cfg.SessionLimit,
 		WeeklyLimit:       cfg.WeeklyLimit,
 		WeeklySonnetLimit: cfg.WeeklySonnetLimit,
-		WeeklyResetsAt:    nextWeeklyReset(),
+		WeeklyResetsAt:    nextWeeklyReset(cfg.WeeklyResetDay, cfg.WeeklyResetHour),
 	}
 
 	if active != nil {
@@ -123,7 +151,7 @@ func Compute(cfg Config) (*UsageResult, error) {
 		}
 	}
 
-	weekStart := lastWeeklyReset()
+	weekStart := lastWeeklyReset(cfg.WeeklyResetDay, cfg.WeeklyResetHour)
 	for _, e := range entries {
 		if e.Timestamp.Before(weekStart) {
 			continue
@@ -144,21 +172,22 @@ func Compute(cfg Config) (*UsageResult, error) {
 	return result, nil
 }
 
-// lastWeeklyReset returns the most recent Friday 08:00 JST.
-func lastWeeklyReset() time.Time {
+// lastWeeklyReset returns the most recent occurrence of the configured
+// reset day/hour in JST. The reset schedule is per-user (rolling 7-day
+// window); configure via CLAUDE_USAGE_TRACKER_WEEKLY_RESET_DAY/HOUR.
+func lastWeeklyReset(day time.Weekday, hour int) time.Time {
 	now := time.Now().In(jst)
-	// weekday: Monday=1 ... Friday=5 ... Sunday=0
-	daysSinceFriday := (int(now.Weekday()) - int(time.Friday) + 7) % 7
-	reset := time.Date(now.Year(), now.Month(), now.Day()-daysSinceFriday, 8, 0, 0, 0, jst)
+	daysSince := (int(now.Weekday()) - int(day) + 7) % 7
+	reset := time.Date(now.Year(), now.Month(), now.Day()-daysSince, hour, 0, 0, 0, jst)
 	if now.Before(reset) {
 		reset = reset.AddDate(0, 0, -7)
 	}
 	return reset
 }
 
-// nextWeeklyReset returns the next Friday 08:00 JST.
-func nextWeeklyReset() time.Time {
-	last := lastWeeklyReset()
+// nextWeeklyReset returns the next occurrence of the configured reset day/hour.
+func nextWeeklyReset(day time.Weekday, hour int) time.Time {
+	last := lastWeeklyReset(day, hour)
 	return last.AddDate(0, 0, 7)
 }
 
