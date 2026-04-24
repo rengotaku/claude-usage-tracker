@@ -123,8 +123,8 @@ func TestConfigFromEnv_DetectsPlanWhenEnvUnset(t *testing.T) {
 	if cfg.DetectedTier != "default_claude_max_5x" {
 		t.Errorf("expected detected tier max_5x, got %s", cfg.DetectedTier)
 	}
-	if cfg.SessionLimit != 45_000_000 {
-		t.Errorf("expected session limit 45M (Max 5x), got %d", cfg.SessionLimit)
+	if cfg.SessionLimit != 90_000_000 {
+		t.Errorf("expected session limit 90M (Max 5x), got %d", cfg.SessionLimit)
 	}
 	if cfg.WeeklyLimit != 833_000_000 {
 		t.Errorf("expected weekly limit 833M (Max 5x), got %d", cfg.WeeklyLimit)

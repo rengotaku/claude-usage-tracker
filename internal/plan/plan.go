@@ -23,11 +23,11 @@ const (
 )
 
 // sessionLimits map 5-hour session token caps.
-// Max 5x value verified against web /usage on 2026-04-22.
+// Max 5x re-verified against web /usage on 2026-04-24: web showed 27% with 24.1M tokens → limit ≈ 90M.
 // Pro / Max 20x are prior community estimates, not yet re-verified.
 var sessionLimits = map[string]int{
 	TierPro:    19_000_000,
-	TierMax5x:  45_000_000,
+	TierMax5x:  90_000_000,
 	TierMax20x: 220_000_000,
 }
 
