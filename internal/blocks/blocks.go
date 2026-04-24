@@ -35,7 +35,7 @@ func Build(entries []jsonl.UsageEntry) []Block {
 
 	for _, e := range sorted {
 		if current == nil || !e.Timestamp.Before(current.EndTime) {
-			start := floorToHour(e.Timestamp.UTC())
+			start := e.Timestamp.UTC().Truncate(time.Second)
 			b := Block{
 				StartTime: start,
 				EndTime:   start.Add(blockDuration),
@@ -67,9 +67,6 @@ func ActiveBlock(blocks []Block) *Block {
 	return nil
 }
 
-func floorToHour(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, time.UTC)
-}
 
 func totalTokens(e jsonl.UsageEntry) int {
 	return e.InputTokens + e.OutputTokens + e.CacheCreationInputTokens + e.CacheReadInputTokens

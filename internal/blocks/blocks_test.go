@@ -38,8 +38,8 @@ func TestBuild_SingleEntry(t *testing.T) {
 		t.Fatalf("expected 1 block, got %d", len(result))
 	}
 	b := result[0]
-	// floorToHour: 10:30 → 10:00
-	want := utc(2026, 4, 19, 10, 0)
+	// block starts at exact first-entry timestamp (aligned with Claude's session window)
+	want := utc(2026, 4, 19, 10, 30)
 	if !b.StartTime.Equal(want) {
 		t.Errorf("StartTime: want %v, got %v", want, b.StartTime)
 	}
