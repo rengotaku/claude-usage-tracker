@@ -1,5 +1,7 @@
 .PHONY: build test lint clean install uninstall status db server
 
+OS := $(shell uname -s)
+
 build:
 	CGO_ENABLED=0 go build ./...
 
@@ -16,16 +18,28 @@ clean:
 	go clean ./...
 
 install:
+ifeq ($(OS),Darwin)
+	bash deploy/launchd/install.sh
+else
 	bash deploy/systemd/install.sh
+endif
 
 uninstall:
+ifeq ($(OS),Darwin)
+	bash deploy/launchd/uninstall.sh
+else
 	systemctl --user disable --now claude-usage-tracker.timer || true
 	rm -f ~/.config/systemd/user/claude-usage-tracker.{service,timer}
 	rm -f ~/.local/bin/claude-usage-tracker-{snapshot,current}
 	systemctl --user daemon-reload
+endif
 
 status:
+ifeq ($(OS),Darwin)
+	launchctl list com.user.claude-usage-tracker 2>/dev/null || echo "Not loaded"
+else
 	systemctl --user status claude-usage-tracker.timer claude-usage-tracker.service || true
+endif
 
 DB_PATH ?= $(HOME)/.local/share/claude-usage-tracker/snapshots.db
 db:
