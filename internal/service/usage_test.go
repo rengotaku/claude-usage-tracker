@@ -97,6 +97,8 @@ func TestConfigFromEnv_Defaults(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("CLAUDE_USAGE_TRACKER_LOG_DIR", "")
 	t.Setenv("CLAUDE_USAGE_TRACKER_PLAN_LIMIT", "")
+	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_RESET_DAY", "")
+	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_RESET_HOUR", "")
 
 	cfg := service.ConfigFromEnv()
 	if cfg.SessionLimit != 0 {
@@ -110,6 +112,26 @@ func TestConfigFromEnv_Defaults(t *testing.T) {
 	}
 	if cfg.SessionLimitFromEnv {
 		t.Error("expected SessionLimitFromEnv=false when env unset")
+	}
+	if cfg.WeeklyResetDay != time.Tuesday {
+		t.Errorf("expected default reset day Tuesday, got %s", cfg.WeeklyResetDay)
+	}
+	if cfg.WeeklyResetHour != 17 {
+		t.Errorf("expected default reset hour 17, got %d", cfg.WeeklyResetHour)
+	}
+}
+
+func TestConfigFromEnv_WeeklyResetOverride(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_RESET_DAY", "Wednesday")
+	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_RESET_HOUR", "9")
+
+	cfg := service.ConfigFromEnv()
+	if cfg.WeeklyResetDay != time.Wednesday {
+		t.Errorf("expected Wednesday, got %s", cfg.WeeklyResetDay)
+	}
+	if cfg.WeeklyResetHour != 9 {
+		t.Errorf("expected 9, got %d", cfg.WeeklyResetHour)
 	}
 }
 
