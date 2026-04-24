@@ -14,6 +14,11 @@
     <dict>
         <key>CLAUDE_USAGE_TRACKER_DB_PATH</key>
         <string>{{HOME}}/.local/share/claude-usage-tracker/snapshots.db</string>
+        <!-- Run `claude-usage-tracker-setup` to get correct values for your account -->
+        <key>CLAUDE_USAGE_TRACKER_WEEKLY_RESET_DAY</key>
+        <string>Thursday</string>
+        <key>CLAUDE_USAGE_TRACKER_WEEKLY_RESET_HOUR</key>
+        <string>7</string>
     </dict>
 
     <key>StartCalendarInterval</key>

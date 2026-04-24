@@ -13,6 +13,7 @@ echo "Building binaries..."
 cd "$SCRIPT_DIR/../.."
 CGO_ENABLED=0 go build -o "$BIN_DIR/claude-usage-tracker-snapshot" ./cmd/snapshot
 CGO_ENABLED=0 go build -o "$BIN_DIR/claude-usage-tracker-current" ./cmd/current
+CGO_ENABLED=0 go build -o "$BIN_DIR/claude-usage-tracker-setup" ./cmd/setup
 
 echo "Installing launchd plist..."
 sed "s|{{HOME}}|$HOME|g" "$SCRIPT_DIR/$PLIST_NAME.plist" > "$PLIST_DIR/$PLIST_NAME.plist"

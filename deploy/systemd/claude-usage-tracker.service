@@ -5,4 +5,8 @@ After=network.target
 [Service]
 Type=oneshot
 Environment=CLAUDE_USAGE_TRACKER_DB_PATH=%h/.local/share/claude-usage-tracker/snapshots.db
+# Run `claude-usage-tracker-setup` and paste the values from https://claude.ai/usage
+# to get the correct values for your account.
+Environment=CLAUDE_USAGE_TRACKER_WEEKLY_RESET_DAY=Thursday
+Environment=CLAUDE_USAGE_TRACKER_WEEKLY_RESET_HOUR=7
 ExecStart=%h/.local/bin/claude-usage-tracker-snapshot
