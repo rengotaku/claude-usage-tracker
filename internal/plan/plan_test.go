@@ -69,7 +69,7 @@ func TestSessionLimitForTier(t *testing.T) {
 		want int
 	}{
 		{"default_claude_pro", 19_000_000},
-		{"default_claude_max_5x", 45_000_000},
+		{"default_claude_max_5x", 90_000_000},
 		{"default_claude_max_20x", 220_000_000},
 		{"unknown_tier", 0},
 		{"", 0},
