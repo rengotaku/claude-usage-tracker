@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
 )
 
@@ -20,13 +21,13 @@ type jsonOutput struct {
 		EndsAt     string  `json:"ends_at,omitempty"`
 	} `json:"session"`
 	Weekly struct {
-		TokensUsed    int     `json:"tokens_used"`
-		Limit         int     `json:"limit,omitempty"`
-		Ratio         float64 `json:"ratio,omitempty"`
-		SonnetTokens  int     `json:"sonnet_tokens_used"`
-		SonnetLimit   int     `json:"sonnet_limit,omitempty"`
-		SonnetRatio   float64 `json:"sonnet_ratio,omitempty"`
-		ResetsAt      string  `json:"resets_at"`
+		TokensUsed   int     `json:"tokens_used"`
+		Limit        int     `json:"limit,omitempty"`
+		Ratio        float64 `json:"ratio,omitempty"`
+		SonnetTokens int     `json:"sonnet_tokens_used"`
+		SonnetLimit  int     `json:"sonnet_limit,omitempty"`
+		SonnetRatio  float64 `json:"sonnet_ratio,omitempty"`
+		ResetsAt     string  `json:"resets_at"`
 	} `json:"weekly"`
 }
 
@@ -34,7 +35,13 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	jsonFlag := len(os.Args) > 1 && os.Args[1] == "--json"
 
-	cfg := service.ConfigFromEnv()
+	appCfg, err := config.Load(config.DefaultPath())
+	if err != nil {
+		logger.Error("load config", "error", err)
+		os.Exit(1)
+	}
+
+	cfg := service.ConfigFrom(appCfg)
 	logPlanDetection(logger, cfg)
 	result, err := service.Compute(cfg)
 	if err != nil {
@@ -67,9 +74,7 @@ func main() {
 		return
 	}
 
-	// Human-readable: match /usage format
 	resetsAt := result.WeeklyResetsAt.In(jst).Format("Jan 2, 3pm")
-
 	fmt.Printf("Current session   %s\n", sessionLine(result))
 	fmt.Printf("Weekly (All)      %s\n", weeklyLine(result.WeeklyTokens, result.WeeklyLimit, result.WeeklyRatio, resetsAt))
 	fmt.Printf("Weekly (Sonnet)   %s\n", weeklyLine(result.WeeklySonnetTokens, result.WeeklySonnetLimit, result.WeeklySonnetRatio, resetsAt))
@@ -94,21 +99,13 @@ func weeklyLine(tokens, limit int, ratio float64, resetsAt string) string {
 	return fmt.Sprintf("%s used (resets %s (Asia/Tokyo))", formatM(tokens), resetsAt)
 }
 
-// logPlanDetection surfaces the detected tier and resolved session limit
-// so users can spot misdetection — the rateLimitTier field in
-// ~/.claude/.credentials.json is non-public and can become stale.
 func logPlanDetection(logger *slog.Logger, cfg service.Config) {
 	if cfg.DetectedTier == "" {
 		return
 	}
-	source := "detected"
-	if cfg.SessionLimitFromEnv {
-		source = "env_override"
-	}
 	logger.Info("plan detected",
 		"tier", cfg.DetectedTier,
 		"session_limit", cfg.SessionLimit,
-		"source", source,
 	)
 }
 

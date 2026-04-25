@@ -31,18 +31,6 @@ type SnapshotRepository struct {
 	db *sql.DB
 }
 
-// DBPath returns the SQLite file path from CLAUDE_USAGE_TRACKER_DB env var,
-// falling back to ~/.local/share/claude-usage-tracker/snapshots.db.
-func DBPath() string {
-	if v := os.Getenv("CLAUDE_USAGE_TRACKER_DB"); v != "" {
-		return v
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "snapshots.db"
-	}
-	return filepath.Join(home, ".local", "share", "claude-usage-tracker", "snapshots.db")
-}
 
 // NewSnapshotRepository opens (or creates) the SQLite database at dbPath and
 // runs idempotent migrations. Pass ":memory:" for in-process testing.

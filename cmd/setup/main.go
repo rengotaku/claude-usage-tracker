@@ -4,7 +4,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
+	"gopkg.in/yaml.v3"
+
+	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/setup"
 )
 
@@ -29,35 +33,41 @@ func main() {
 		os.Exit(1)
 	}
 
-	printRecommendations(r)
+	if err := writeConfig(r); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		os.Exit(1)
+	}
 }
 
-func printRecommendations(r setup.Result) {
+func writeConfig(r setup.Result) error {
+	cfgPath := config.DefaultPath()
+	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o755); err != nil {
+		return fmt.Errorf("create config dir: %w", err)
+	}
+
+	// Load existing config to preserve user settings.
+	existing, _ := config.Load(cfgPath)
+
+	if r.HasReset {
+		existing.WeeklyResetDay = r.WeeklyResetDay.String()
+		existing.WeeklyResetHour = r.WeeklyResetHour
+	}
+
+	out, err := yaml.Marshal(existing)
+	if err != nil {
+		return fmt.Errorf("marshal config: %w", err)
+	}
+	if err := os.WriteFile(cfgPath, out, 0o644); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+
+	fmt.Printf("Wrote %s\n", cfgPath)
 	if r.Plan != "" {
-		fmt.Printf("# Plan: %s\n", r.Plan)
+		fmt.Printf("  plan:              %s\n", r.Plan)
 	}
 	if r.HasReset {
-		fmt.Printf("# Weekly reset: %s %02d:00 (web UI timezone — adjust to JST if needed)\n", r.WeeklyResetDay, r.WeeklyResetHour)
+		fmt.Printf("  weekly_reset_day:  %s\n", r.WeeklyResetDay)
+		fmt.Printf("  weekly_reset_hour: %d\n", r.WeeklyResetHour)
 	}
-	fmt.Println()
-
-	fmt.Println("# ---- ~/.bashrc or ~/.zshrc ----")
-	if r.HasReset {
-		fmt.Printf("export CLAUDE_USAGE_TRACKER_WEEKLY_RESET_DAY=%s\n", r.WeeklyResetDay)
-		fmt.Printf("export CLAUDE_USAGE_TRACKER_WEEKLY_RESET_HOUR=%d\n", r.WeeklyResetHour)
-	}
-	fmt.Println()
-
-	fmt.Println("# ---- systemd: deploy/systemd/claude-usage-tracker.service ----")
-	if r.HasReset {
-		fmt.Printf("Environment=CLAUDE_USAGE_TRACKER_WEEKLY_RESET_DAY=%s\n", r.WeeklyResetDay)
-		fmt.Printf("Environment=CLAUDE_USAGE_TRACKER_WEEKLY_RESET_HOUR=%d\n", r.WeeklyResetHour)
-	}
-	fmt.Println()
-
-	fmt.Println("# ---- launchd: deploy/launchd/com.user.claude-usage-tracker.plist ----")
-	if r.HasReset {
-		fmt.Printf("<key>CLAUDE_USAGE_TRACKER_WEEKLY_RESET_DAY</key>\n<string>%s</string>\n", r.WeeklyResetDay)
-		fmt.Printf("<key>CLAUDE_USAGE_TRACKER_WEEKLY_RESET_HOUR</key>\n<string>%d</string>\n", r.WeeklyResetHour)
-	}
+	return nil
 }

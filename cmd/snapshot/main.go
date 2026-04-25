@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/repository"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
 )
@@ -13,17 +14,22 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 
-	cfg := service.ConfigFromEnv()
+	appCfg, err := config.Load(config.DefaultPath())
+	if err != nil {
+		logger.Error("load config", "error", err)
+		os.Exit(1)
+	}
+
+	cfg := service.ConfigFrom(appCfg)
 	result, err := service.Compute(cfg)
 	if err != nil {
 		logger.Error("compute usage", "error", err)
 		os.Exit(1)
 	}
 
-	dbPath := repository.DBPath()
-	repo, err := repository.NewSnapshotRepository(context.Background(), dbPath)
+	repo, err := repository.NewSnapshotRepository(context.Background(), appCfg.DB)
 	if err != nil {
-		logger.Error("open repository", "path", dbPath, "error", err)
+		logger.Error("open repository", "path", appCfg.DB, "error", err)
 		os.Exit(1)
 	}
 	defer repo.Close()
