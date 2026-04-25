@@ -4,4 +4,7 @@ After=network.target
 
 [Service]
 Type=oneshot
+# Config file path (default: ~/.config/claude-usage-tracker/config.yaml)
+# Run `claude-usage-tracker-setup` to generate the config file.
+Environment=CLAUDE_USAGE_TRACKER_CONFIG=%h/.config/claude-usage-tracker/config.yaml
 ExecStart=%h/.local/bin/claude-usage-tracker-snapshot

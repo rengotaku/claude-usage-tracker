@@ -21,8 +21,12 @@ type Config struct {
 	Port              string `yaml:"port"`
 }
 
-// DefaultPath returns ~/.config/claude-usage-tracker/config.yaml.
+// DefaultPath returns the config file path. CLAUDE_USAGE_TRACKER_CONFIG env var
+// overrides the default ~/.config/claude-usage-tracker/config.yaml.
 func DefaultPath() string {
+	if v := os.Getenv("CLAUDE_USAGE_TRACKER_CONFIG"); v != "" {
+		return v
+	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".config", "claude-usage-tracker", "config.yaml")
 }

@@ -63,6 +63,13 @@ func TestLoad_HomeTilde(t *testing.T) {
 	}
 }
 
+func TestDefaultPath_EnvOverride(t *testing.T) {
+	t.Setenv("CLAUDE_USAGE_TRACKER_CONFIG", "/custom/path/config.yaml")
+	if got := config.DefaultPath(); got != "/custom/path/config.yaml" {
+		t.Errorf("DefaultPath: want /custom/path/config.yaml, got %s", got)
+	}
+}
+
 func TestLoad_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
