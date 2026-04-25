@@ -92,3 +92,38 @@ func TestLoad_MissOnCorruptFile(t *testing.T) {
 		t.Error("expected nil for corrupt cache file")
 	}
 }
+
+func TestSave_OverwritesExpiredCache(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cache.json")
+
+	// 古い値を保存
+	old := sampleResult()
+	old.SessionTokens = 100
+	if err := cache.Save(path, old); err != nil {
+		t.Fatalf("save old: %v", err)
+	}
+
+	// TTL=0 でキャッシュミス → 新しい値で上書き
+	missed, _ := cache.Load(path, 0)
+	if missed != nil {
+		t.Fatal("expected miss on expired cache")
+	}
+
+	updated := sampleResult()
+	updated.SessionTokens = 9999
+	if err := cache.Save(path, updated); err != nil {
+		t.Fatalf("save updated: %v", err)
+	}
+
+	// TTL内で読み直すと新しい値が返る
+	got, err := cache.Load(path, time.Minute)
+	if err != nil {
+		t.Fatalf("load after update: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected cache hit after update")
+	}
+	if got.SessionTokens != 9999 {
+		t.Errorf("expected updated value 9999, got %d", got.SessionTokens)
+	}
+}
