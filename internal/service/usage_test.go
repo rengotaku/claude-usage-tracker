@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
 )
 
@@ -92,15 +93,11 @@ func TestCompute_WeeklyLimit(t *testing.T) {
 	}
 }
 
-func TestConfigFromEnv_Defaults(t *testing.T) {
-	// Isolate HOME so credentials detection cannot interfere.
+func TestConfigFrom_Defaults(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("CLAUDE_USAGE_TRACKER_LOG_DIR", "")
-	t.Setenv("CLAUDE_USAGE_TRACKER_PLAN_LIMIT", "")
-	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_RESET_DAY", "")
-	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_RESET_HOUR", "")
+	d := config.Defaults()
+	cfg := service.ConfigFrom(d)
 
-	cfg := service.ConfigFromEnv()
 	if cfg.SessionLimit != 0 {
 		t.Errorf("expected default session limit 0, got %d", cfg.SessionLimit)
 	}
@@ -110,9 +107,6 @@ func TestConfigFromEnv_Defaults(t *testing.T) {
 	if cfg.DetectedTier != "" {
 		t.Errorf("expected empty DetectedTier, got %s", cfg.DetectedTier)
 	}
-	if cfg.SessionLimitFromEnv {
-		t.Error("expected SessionLimitFromEnv=false when env unset")
-	}
 	if cfg.WeeklyResetDay != time.Tuesday {
 		t.Errorf("expected default reset day Tuesday, got %s", cfg.WeeklyResetDay)
 	}
@@ -121,12 +115,13 @@ func TestConfigFromEnv_Defaults(t *testing.T) {
 	}
 }
 
-func TestConfigFromEnv_WeeklyResetOverride(t *testing.T) {
+func TestConfigFrom_WeeklyResetOverride(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_RESET_DAY", "Wednesday")
-	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_RESET_HOUR", "9")
+	c := config.Defaults()
+	c.WeeklyResetDay = "Wednesday"
+	c.WeeklyResetHour = 9
 
-	cfg := service.ConfigFromEnv()
+	cfg := service.ConfigFrom(c)
 	if cfg.WeeklyResetDay != time.Wednesday {
 		t.Errorf("expected Wednesday, got %s", cfg.WeeklyResetDay)
 	}
@@ -135,13 +130,13 @@ func TestConfigFromEnv_WeeklyResetOverride(t *testing.T) {
 	}
 }
 
-func TestConfigFromEnv_DetectsPlanWhenEnvUnset(t *testing.T) {
+func TestConfigFrom_DetectsPlan(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("CLAUDE_USAGE_TRACKER_PLAN_LIMIT", "")
 	writeCredentials(t, home, `{"claudeAiOauth":{"rateLimitTier":"default_claude_max_5x"}}`)
 
-	cfg := service.ConfigFromEnv()
+	c := config.Defaults()
+	cfg := service.ConfigFrom(c)
 	if cfg.DetectedTier != "default_claude_max_5x" {
 		t.Errorf("expected detected tier max_5x, got %s", cfg.DetectedTier)
 	}
@@ -154,74 +149,68 @@ func TestConfigFromEnv_DetectsPlanWhenEnvUnset(t *testing.T) {
 	if cfg.WeeklySonnetLimit != 695_000_000 {
 		t.Errorf("expected weekly sonnet limit 695M (Max 5x), got %d", cfg.WeeklySonnetLimit)
 	}
-	if cfg.SessionLimitFromEnv {
-		t.Error("expected SessionLimitFromEnv=false (detected, not env)")
-	}
 }
 
-func TestConfigFromEnv_WeeklyEnvWinsOverDetection(t *testing.T) {
+func TestConfigFrom_ConfigWinsOverDetection(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_LIMIT", "900000000")
-	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_SONNET_LIMIT", "700000000")
 	writeCredentials(t, home, `{"claudeAiOauth":{"rateLimitTier":"default_claude_max_5x"}}`)
 
-	cfg := service.ConfigFromEnv()
+	c := config.Defaults()
+	c.WeeklyLimit = 900_000_000
+	c.WeeklySonnetLimit = 700_000_000
+
+	cfg := service.ConfigFrom(c)
 	if cfg.WeeklyLimit != 900_000_000 {
-		t.Errorf("expected env weekly 900M, got %d", cfg.WeeklyLimit)
+		t.Errorf("expected config weekly 900M, got %d", cfg.WeeklyLimit)
 	}
 	if cfg.WeeklySonnetLimit != 700_000_000 {
-		t.Errorf("expected env sonnet 700M, got %d", cfg.WeeklySonnetLimit)
+		t.Errorf("expected config sonnet 700M, got %d", cfg.WeeklySonnetLimit)
 	}
 }
 
-func TestConfigFromEnv_UnmappedTierLeavesWeeklyZero(t *testing.T) {
+func TestConfigFrom_UnmappedTierLeavesWeeklyZero(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_LIMIT", "")
-	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_SONNET_LIMIT", "")
-	// Pro weekly limits are not in the map yet.
 	writeCredentials(t, home, `{"claudeAiOauth":{"rateLimitTier":"default_claude_pro"}}`)
 
-	cfg := service.ConfigFromEnv()
+	c := config.Defaults()
+	cfg := service.ConfigFrom(c)
 	if cfg.WeeklyLimit != 0 {
 		t.Errorf("expected weekly limit 0 for unmapped tier, got %d", cfg.WeeklyLimit)
 	}
 	if cfg.WeeklySonnetLimit != 0 {
 		t.Errorf("expected weekly sonnet limit 0 for unmapped tier, got %d", cfg.WeeklySonnetLimit)
 	}
-	// Session limit for Pro is still populated.
 	if cfg.SessionLimit != 19_000_000 {
 		t.Errorf("expected session limit 19M (Pro), got %d", cfg.SessionLimit)
 	}
 }
 
-func TestConfigFromEnv_EnvWinsOverDetection(t *testing.T) {
+func TestConfigFrom_PlanLimitWinsOverDetection(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("CLAUDE_USAGE_TRACKER_PLAN_LIMIT", "50000000")
 	writeCredentials(t, home, `{"claudeAiOauth":{"rateLimitTier":"default_claude_max_20x"}}`)
 
-	cfg := service.ConfigFromEnv()
+	c := config.Defaults()
+	c.PlanLimit = 50_000_000
+
+	cfg := service.ConfigFrom(c)
 	if cfg.SessionLimit != 50_000_000 {
-		t.Errorf("expected env-set limit 50M, got %d", cfg.SessionLimit)
+		t.Errorf("expected config-set limit 50M, got %d", cfg.SessionLimit)
 	}
-	if !cfg.SessionLimitFromEnv {
-		t.Error("expected SessionLimitFromEnv=true")
-	}
-	// Detected tier is still reported for visibility, even when overridden.
 	if cfg.DetectedTier != "default_claude_max_20x" {
 		t.Errorf("expected detected tier still surfaced, got %s", cfg.DetectedTier)
 	}
 }
 
-func TestConfigFromEnv_UnknownTier(t *testing.T) {
+func TestConfigFrom_UnknownTier(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("CLAUDE_USAGE_TRACKER_PLAN_LIMIT", "")
 	writeCredentials(t, home, `{"claudeAiOauth":{"rateLimitTier":"future_tier"}}`)
 
-	cfg := service.ConfigFromEnv()
+	c := config.Defaults()
+	cfg := service.ConfigFrom(c)
 	if cfg.DetectedTier != "future_tier" {
 		t.Errorf("expected tier future_tier, got %s", cfg.DetectedTier)
 	}
@@ -230,14 +219,15 @@ func TestConfigFromEnv_UnknownTier(t *testing.T) {
 	}
 }
 
-func TestConfigFromEnv_EnvOverride(t *testing.T) {
+func TestConfigFrom_Override(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("CLAUDE_USAGE_TRACKER_LOG_DIR", "/tmp/logs")
-	t.Setenv("CLAUDE_USAGE_TRACKER_PLAN_LIMIT", "53000000")
-	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_LIMIT", "1000000000")
-	t.Setenv("CLAUDE_USAGE_TRACKER_WEEKLY_SONNET_LIMIT", "500000000")
+	c := config.Defaults()
+	c.LogDir = "/tmp/logs"
+	c.PlanLimit = 53_000_000
+	c.WeeklyLimit = 1_000_000_000
+	c.WeeklySonnetLimit = 500_000_000
 
-	cfg := service.ConfigFromEnv()
+	cfg := service.ConfigFrom(c)
 	if cfg.LogDir != "/tmp/logs" {
 		t.Errorf("expected /tmp/logs, got %s", cfg.LogDir)
 	}

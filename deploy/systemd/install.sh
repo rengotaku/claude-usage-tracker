@@ -11,6 +11,7 @@ echo "Building binaries..."
 cd "$SCRIPT_DIR/../.."
 CGO_ENABLED=0 go build -o "$BIN_DIR/claude-usage-tracker-snapshot" ./cmd/snapshot
 CGO_ENABLED=0 go build -o "$BIN_DIR/claude-usage-tracker-current" ./cmd/current
+CGO_ENABLED=0 go build -o "$BIN_DIR/claude-usage-tracker-setup" ./cmd/setup
 
 echo "Installing systemd units..."
 cp "$SCRIPT_DIR/claude-usage-tracker.service" "$UNIT_DIR/"

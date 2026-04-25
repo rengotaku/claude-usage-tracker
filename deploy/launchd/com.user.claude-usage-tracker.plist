@@ -10,12 +10,6 @@
         <string>{{HOME}}/.local/bin/claude-usage-tracker-snapshot</string>
     </array>
 
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>CLAUDE_USAGE_TRACKER_DB_PATH</key>
-        <string>{{HOME}}/.local/share/claude-usage-tracker/snapshots.db</string>
-    </dict>
-
     <key>StartCalendarInterval</key>
     <dict>
         <key>Minute</key>
