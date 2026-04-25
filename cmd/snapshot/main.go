@@ -21,6 +21,10 @@ func main() {
 	}
 
 	cfg := service.ConfigFrom(appCfg)
+	if err := service.ValidateConfig(cfg); err != nil {
+		logger.Error("invalid config", "error", err)
+		os.Exit(1)
+	}
 	result, err := service.Compute(cfg)
 	if err != nil {
 		logger.Error("compute usage", "error", err)

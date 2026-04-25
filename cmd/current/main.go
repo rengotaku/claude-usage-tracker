@@ -42,6 +42,10 @@ func main() {
 	}
 
 	cfg := service.ConfigFrom(appCfg)
+	if err := service.ValidateConfig(cfg); err != nil {
+		logger.Error("invalid config", "error", err)
+		os.Exit(1)
+	}
 	logPlanDetection(logger, cfg)
 	result, err := service.Compute(cfg)
 	if err != nil {

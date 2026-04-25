@@ -22,9 +22,9 @@ var weekdayNames = map[string]time.Weekday{
 // Config holds runtime configuration for usage computation.
 type Config struct {
 	LogDir            string
-	SessionLimit      int // 5-hour block limit (0 = unknown)
-	WeeklyLimit       int // weekly all-models limit (0 = unknown)
-	WeeklySonnetLimit int // weekly Sonnet-only limit (0 = unknown)
+	SessionLimit      int // 5-hour block limit (0 = not configured)
+	WeeklyLimit       int // weekly all-models limit (0 = not configured)
+	WeeklySonnetLimit int // weekly Sonnet-only limit (0 = not configured)
 	WeeklyResetDay    time.Weekday
 	WeeklyResetHour   int // JST hour
 
@@ -32,22 +32,10 @@ type Config struct {
 	DetectedTier string
 }
 
-// ConfigFrom builds a service Config from an application config and auto-detected tier.
+// ConfigFrom builds a service Config from an application config.
+// Token limits come exclusively from the config file; no hardcoded defaults.
 func ConfigFrom(c config.Config) Config {
 	detectedTier, _ := plan.DetectTier()
-
-	sessionLimit := c.PlanLimit
-	if sessionLimit == 0 && detectedTier != "" {
-		sessionLimit = plan.SessionLimitForTier(detectedTier)
-	}
-	weeklyLimit := c.WeeklyLimit
-	if weeklyLimit == 0 && detectedTier != "" {
-		weeklyLimit = plan.WeeklyLimitForTier(detectedTier)
-	}
-	weeklySonnetLimit := c.WeeklySonnetLimit
-	if weeklySonnetLimit == 0 && detectedTier != "" {
-		weeklySonnetLimit = plan.WeeklySonnetLimitForTier(detectedTier)
-	}
 
 	resetDay := time.Tuesday
 	if d, ok := weekdayNames[strings.ToLower(c.WeeklyResetDay)]; ok {
@@ -56,13 +44,32 @@ func ConfigFrom(c config.Config) Config {
 
 	return Config{
 		LogDir:            c.LogDir,
-		SessionLimit:      sessionLimit,
-		WeeklyLimit:       weeklyLimit,
-		WeeklySonnetLimit: weeklySonnetLimit,
+		SessionLimit:      c.PlanLimit,
+		WeeklyLimit:       c.WeeklyLimit,
+		WeeklySonnetLimit: c.WeeklySonnetLimit,
 		WeeklyResetDay:    resetDay,
 		WeeklyResetHour:   c.WeeklyResetHour,
 		DetectedTier:      detectedTier,
 	}
+}
+
+// ValidateConfig returns an error if required token limits are not configured.
+func ValidateConfig(cfg Config) error {
+	var missing []string
+	if cfg.SessionLimit == 0 {
+		missing = append(missing, "plan_limit")
+	}
+	if cfg.WeeklyLimit == 0 {
+		missing = append(missing, "weekly_limit")
+	}
+	if cfg.WeeklySonnetLimit == 0 {
+		missing = append(missing, "weekly_sonnet_limit")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("required config not set: %s — run 'claude-usage-tracker-setup' to configure",
+			strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 // UsageResult holds session and weekly usage metrics.
