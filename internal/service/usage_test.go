@@ -101,6 +101,12 @@ func TestConfigFrom_Defaults(t *testing.T) {
 	if cfg.SessionLimit != 0 {
 		t.Errorf("expected default session limit 0, got %d", cfg.SessionLimit)
 	}
+	if cfg.WeeklyLimit != 0 {
+		t.Errorf("expected default weekly limit 0, got %d", cfg.WeeklyLimit)
+	}
+	if cfg.WeeklySonnetLimit != 0 {
+		t.Errorf("expected default weekly sonnet limit 0, got %d", cfg.WeeklySonnetLimit)
+	}
 	if cfg.LogDir == "" {
 		t.Error("expected non-empty log dir")
 	}
@@ -130,7 +136,7 @@ func TestConfigFrom_WeeklyResetOverride(t *testing.T) {
 	}
 }
 
-func TestConfigFrom_DetectsPlan(t *testing.T) {
+func TestConfigFrom_TierDetected(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	writeCredentials(t, home, `{"claudeAiOauth":{"rateLimitTier":"default_claude_max_5x"}}`)
@@ -140,82 +146,37 @@ func TestConfigFrom_DetectsPlan(t *testing.T) {
 	if cfg.DetectedTier != "default_claude_max_5x" {
 		t.Errorf("expected detected tier max_5x, got %s", cfg.DetectedTier)
 	}
-	if cfg.SessionLimit != 90_000_000 {
-		t.Errorf("expected session limit 90M (Max 5x), got %d", cfg.SessionLimit)
+	// limits come from config only — not auto-populated from tier
+	if cfg.SessionLimit != 0 {
+		t.Errorf("expected session limit 0 (not set in config), got %d", cfg.SessionLimit)
 	}
-	if cfg.WeeklyLimit != 833_000_000 {
-		t.Errorf("expected weekly limit 833M (Max 5x), got %d", cfg.WeeklyLimit)
+	if cfg.WeeklyLimit != 0 {
+		t.Errorf("expected weekly limit 0 (not set in config), got %d", cfg.WeeklyLimit)
 	}
-	if cfg.WeeklySonnetLimit != 695_000_000 {
-		t.Errorf("expected weekly sonnet limit 695M (Max 5x), got %d", cfg.WeeklySonnetLimit)
+	if cfg.WeeklySonnetLimit != 0 {
+		t.Errorf("expected weekly sonnet limit 0 (not set in config), got %d", cfg.WeeklySonnetLimit)
 	}
 }
 
-func TestConfigFrom_ConfigWinsOverDetection(t *testing.T) {
+func TestConfigFrom_ConfigLimitsUsed(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	writeCredentials(t, home, `{"claudeAiOauth":{"rateLimitTier":"default_claude_max_5x"}}`)
 
 	c := config.Defaults()
-	c.WeeklyLimit = 900_000_000
-	c.WeeklySonnetLimit = 700_000_000
+	c.PlanLimit = 90_000_000
+	c.WeeklyLimit = 1_260_000_000
+	c.WeeklySonnetLimit = 1_300_000_000
 
 	cfg := service.ConfigFrom(c)
-	if cfg.WeeklyLimit != 900_000_000 {
-		t.Errorf("expected config weekly 900M, got %d", cfg.WeeklyLimit)
+	if cfg.SessionLimit != 90_000_000 {
+		t.Errorf("expected 90M, got %d", cfg.SessionLimit)
 	}
-	if cfg.WeeklySonnetLimit != 700_000_000 {
-		t.Errorf("expected config sonnet 700M, got %d", cfg.WeeklySonnetLimit)
+	if cfg.WeeklyLimit != 1_260_000_000 {
+		t.Errorf("expected 1260M, got %d", cfg.WeeklyLimit)
 	}
-}
-
-func TestConfigFrom_UnmappedTierLeavesWeeklyZero(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	writeCredentials(t, home, `{"claudeAiOauth":{"rateLimitTier":"default_claude_pro"}}`)
-
-	c := config.Defaults()
-	cfg := service.ConfigFrom(c)
-	if cfg.WeeklyLimit != 0 {
-		t.Errorf("expected weekly limit 0 for unmapped tier, got %d", cfg.WeeklyLimit)
-	}
-	if cfg.WeeklySonnetLimit != 0 {
-		t.Errorf("expected weekly sonnet limit 0 for unmapped tier, got %d", cfg.WeeklySonnetLimit)
-	}
-	if cfg.SessionLimit != 19_000_000 {
-		t.Errorf("expected session limit 19M (Pro), got %d", cfg.SessionLimit)
-	}
-}
-
-func TestConfigFrom_PlanLimitWinsOverDetection(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	writeCredentials(t, home, `{"claudeAiOauth":{"rateLimitTier":"default_claude_max_20x"}}`)
-
-	c := config.Defaults()
-	c.PlanLimit = 50_000_000
-
-	cfg := service.ConfigFrom(c)
-	if cfg.SessionLimit != 50_000_000 {
-		t.Errorf("expected config-set limit 50M, got %d", cfg.SessionLimit)
-	}
-	if cfg.DetectedTier != "default_claude_max_20x" {
-		t.Errorf("expected detected tier still surfaced, got %s", cfg.DetectedTier)
-	}
-}
-
-func TestConfigFrom_UnknownTier(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	writeCredentials(t, home, `{"claudeAiOauth":{"rateLimitTier":"future_tier"}}`)
-
-	c := config.Defaults()
-	cfg := service.ConfigFrom(c)
-	if cfg.DetectedTier != "future_tier" {
-		t.Errorf("expected tier future_tier, got %s", cfg.DetectedTier)
-	}
-	if cfg.SessionLimit != 0 {
-		t.Errorf("expected 0 session limit for unknown tier, got %d", cfg.SessionLimit)
+	if cfg.WeeklySonnetLimit != 1_300_000_000 {
+		t.Errorf("expected 1300M, got %d", cfg.WeeklySonnetLimit)
 	}
 }
 
@@ -240,6 +201,55 @@ func TestConfigFrom_Override(t *testing.T) {
 	if cfg.WeeklySonnetLimit != 500_000_000 {
 		t.Errorf("expected 500000000, got %d", cfg.WeeklySonnetLimit)
 	}
+}
+
+func TestValidateConfig_AllSet(t *testing.T) {
+	cfg := service.Config{
+		SessionLimit:      90_000_000,
+		WeeklyLimit:       1_260_000_000,
+		WeeklySonnetLimit: 1_300_000_000,
+	}
+	if err := service.ValidateConfig(cfg); err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+}
+
+func TestValidateConfig_MissingAll(t *testing.T) {
+	cfg := service.Config{}
+	err := service.ValidateConfig(cfg)
+	if err == nil {
+		t.Fatal("expected error for missing limits")
+	}
+	msg := err.Error()
+	for _, field := range []string{"plan_limit", "weekly_limit", "weekly_sonnet_limit"} {
+		if !contains(msg, field) {
+			t.Errorf("expected error to mention %q, got: %s", field, msg)
+		}
+	}
+}
+
+func TestValidateConfig_MissingPartial(t *testing.T) {
+	cfg := service.Config{SessionLimit: 90_000_000}
+	err := service.ValidateConfig(cfg)
+	if err == nil {
+		t.Fatal("expected error for missing weekly limits")
+	}
+	if contains(err.Error(), "plan_limit") {
+		t.Errorf("plan_limit should not be in error, got: %s", err.Error())
+	}
+}
+
+func contains(s, sub string) bool {
+	return len(s) >= len(sub) && (s == sub || len(s) > 0 && containsHelper(s, sub))
+}
+
+func containsHelper(s, sub string) bool {
+	for i := 0; i <= len(s)-len(sub); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
 }
 
 func writeCredentials(t *testing.T, home, body string) {

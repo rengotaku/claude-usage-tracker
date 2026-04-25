@@ -10,6 +10,7 @@ import (
 	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/repository"
 	"github.com/rengotaku/claude-usage-tracker/internal/server"
+	"github.com/rengotaku/claude-usage-tracker/internal/service"
 )
 
 func main() {
@@ -28,6 +29,10 @@ func main() {
 	}
 	defer repo.Close()
 
+	if err := service.ValidateConfig(service.ConfigFrom(appCfg)); err != nil {
+		logger.Error("invalid config", "error", err)
+		os.Exit(1)
+	}
 	cfg := server.Config{
 		SessionLimit:      appCfg.PlanLimit,
 		WeeklyLimit:       appCfg.WeeklyLimit,
