@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/rengotaku/claude-usage-tracker/internal/cache"
 	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
 )
@@ -33,7 +35,17 @@ type jsonOutput struct {
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
-	jsonFlag := len(os.Args) > 1 && os.Args[1] == "--json"
+
+	noCache := false
+	jsonFlag := false
+	for _, arg := range os.Args[1:] {
+		switch arg {
+		case "--json":
+			jsonFlag = true
+		case "--no-cache":
+			noCache = true
+		}
+	}
 
 	appCfg, err := config.Load(config.DefaultPath())
 	if err != nil {
@@ -46,11 +58,29 @@ func main() {
 		logger.Error("invalid config", "error", err)
 		os.Exit(1)
 	}
-	logPlanDetection(logger, cfg)
-	result, err := service.Compute(cfg)
-	if err != nil {
-		logger.Error("compute usage", "error", err)
-		os.Exit(1)
+
+	cachePath := filepath.Join(filepath.Dir(appCfg.DB), "current-cache.json")
+	ttl := time.Duration(appCfg.CacheTTL) * time.Second
+
+	var result *service.UsageResult
+
+	if !noCache {
+		result, err = cache.Load(cachePath, ttl)
+		if err != nil {
+			logger.Warn("cache load failed", "error", err)
+		}
+	}
+
+	if result == nil {
+		logPlanDetection(logger, cfg)
+		result, err = service.Compute(cfg)
+		if err != nil {
+			logger.Error("compute usage", "error", err)
+			os.Exit(1)
+		}
+		if err := cache.Save(cachePath, result); err != nil {
+			logger.Warn("cache save failed", "error", err)
+		}
 	}
 
 	if jsonFlag {

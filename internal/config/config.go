@@ -19,6 +19,7 @@ type Config struct {
 	WeeklyResetDay    string `yaml:"weekly_reset_day"`
 	WeeklyResetHour   int    `yaml:"weekly_reset_hour"`
 	Port              string `yaml:"port"`
+	CacheTTL          int    `yaml:"cache_ttl"` // seconds; 0 = use default (60)
 }
 
 // DefaultPath returns the config file path. CLAUDE_USAGE_TRACKER_CONFIG env var
@@ -72,6 +73,9 @@ func Load(path string) (Config, error) {
 	if file.Port != "" {
 		cfg.Port = file.Port
 	}
+	if file.CacheTTL != 0 {
+		cfg.CacheTTL = file.CacheTTL
+	}
 	return cfg, nil
 }
 
@@ -84,6 +88,7 @@ func Defaults() Config {
 		WeeklyResetDay:  "Tuesday",
 		WeeklyResetHour: 17,
 		Port:            "8080",
+		CacheTTL:        60,
 	}
 }
 
