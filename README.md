@@ -97,3 +97,67 @@ make uninstall
 
 - ログ: `~/.local/share/claude-usage-tracker/launchd.log`
 - エラーログ: `~/.local/share/claude-usage-tracker/launchd.error.log`
+
+## 週次レポート自動投稿
+
+`scripts/report_usage.sh` が毎週月曜 09:00 に [Discussion #34](https://github.com/rengotaku/claude-usage-tracker/discussions/34) へ使用量レポートを自動投稿する。
+
+**レポート内容**
+
+- 実行ホスト (linux / mac)
+- 現在のセッション使用率・トークン内訳
+- 週次使用量 (All / Sonnet)
+- 週次モデル別内訳 (Sonnet / Opus / Haiku)
+- 直近ブロック一覧 (直近7日)
+- 月の第1週のみ: 前月総括 (月間トータル / モデル別)
+
+**依存コマンド**: `jq`, `gh` CLI, `sqlite3` (オプション)
+
+### セットアップ — Linux (systemd timer)
+
+```bash
+# 前提: make install 済みで claude-usage-tracker-current が ~/.local/bin/ にある
+bash scripts/systemd/install.sh
+
+# 動作確認
+claude-usage-report --dry-run
+
+# ログ確認
+journalctl --user -u claude-usage-report
+```
+
+`GH_TOKEN` を使う場合は `~/.config/claude-usage-report/env` に記述する:
+
+```
+GH_TOKEN=ghp_xxxx
+```
+
+### セットアップ — macOS (launchd)
+
+```bash
+bash scripts/launchd/install.sh
+
+# 動作確認
+claude-usage-report --dry-run
+
+# ログ確認
+tail -f ~/.local/share/claude-usage-tracker/report.log
+```
+
+### 手動実行
+
+```bash
+# 投稿せず stdout に出力
+claude-usage-report --dry-run
+
+# 前回と同一内容でも強制投稿
+claude-usage-report --force
+```
+
+### 環境変数
+
+| 変数 | デフォルト | 説明 |
+|------|-----------|------|
+| `CLAUDE_USAGE_TRACKER_DB` | `~/.local/share/claude-usage-tracker/snapshots.db` | SQLite DB パス |
+| `CLAUDE_USAGE_TRACKER_LOG_DIR` | `~/.claude/projects` | JSONL ログディレクトリ |
+| `GH_TOKEN` | (gh auth login を使用) | GitHub API トークン |
