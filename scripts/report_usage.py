@@ -116,6 +116,7 @@ def get_recent_blocks() -> list[dict]:
             FROM snapshots
             WHERE block_started_at >= datetime('now', '-7 days')
             GROUP BY block_started_at
+            HAVING MAX(tokens_used) > 0
             ORDER BY block_started_at DESC
             LIMIT 10
         """)
@@ -149,7 +150,8 @@ def parse_jsonl_entries(since: datetime | None = None, until: datetime | None = 
                     msg = obj.get("message")
                     if not msg or not msg.get("usage"):
                         continue
-                    uid = obj.get("uuid") or obj.get("message", {}).get("id", "")
+                    # Match Go's dedup logic: message.id preferred over outer uuid
+                    uid = (msg.get("id") or "").strip() or (obj.get("uuid") or "").strip()
                     if uid and uid in seen:
                         continue
                     if uid:
@@ -346,9 +348,15 @@ def main() -> None:
     os_type = "mac" if platform.system() == "Darwin" else "linux"
     usage = get_usage()
 
-    # Weekly model breakdown from JSONL (approximate: past 7 days)
-    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
-    weekly_entries = parse_jsonl_entries(since=week_ago)
+    # Weekly model breakdown from JSONL — use the actual weekly reset time
+    # resets_at is next reset; weekly start = resets_at - 7 days
+    resets_at_str = usage["weekly"].get("resets_at", "")
+    try:
+        resets_at = datetime.fromisoformat(resets_at_str)
+        weekly_start = resets_at - timedelta(days=7)
+    except ValueError:
+        weekly_start = datetime.now(timezone.utc) - timedelta(days=7)
+    weekly_entries = parse_jsonl_entries(since=weekly_start.astimezone(timezone.utc))
     model_rows = model_breakdown(weekly_entries)
 
     blocks = get_recent_blocks()
