@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=oneshot
 # Optional: override GH_TOKEN for gh CLI authentication
 EnvironmentFile=-%h/.config/claude-usage-report/env
-ExecStart=%h/.local/bin/claude-usage-report
+ExecStart=%h/.local/bin/claude-usage-report.py
 Restart=on-failure
 StandardOutput=journal
 StandardError=journal

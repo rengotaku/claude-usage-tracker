@@ -8,7 +8,7 @@ UNIT_DIR="$HOME/.config/systemd/user"
 mkdir -p "$BIN_DIR" "$UNIT_DIR"
 
 echo "Installing report script..."
-install -m 0755 "$SCRIPT_DIR/../report_usage.sh" "$BIN_DIR/claude-usage-report"
+install -m 0755 "$SCRIPT_DIR/../report_usage.py" "$BIN_DIR/claude-usage-report.py"
 
 echo "Installing systemd units..."
 cp "$SCRIPT_DIR/claude-usage-report.service" "$UNIT_DIR/"
@@ -18,4 +18,4 @@ systemctl --user daemon-reload
 systemctl --user enable --now claude-usage-report.timer
 
 echo "Done. Verify with: systemctl --user list-timers"
-echo "Test run:          $BIN_DIR/claude-usage-report --dry-run"
+echo "Test run:          $BIN_DIR/claude-usage-report.py --dry-run"

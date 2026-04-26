@@ -10,7 +10,7 @@ LOG_DIR="$HOME/.local/share/claude-usage-tracker"
 mkdir -p "$BIN_DIR" "$PLIST_DIR" "$LOG_DIR"
 
 echo "Installing report script..."
-install -m 0755 "$SCRIPT_DIR/../report_usage.sh" "$BIN_DIR/claude-usage-report"
+install -m 0755 "$SCRIPT_DIR/../report_usage.py" "$BIN_DIR/claude-usage-report.py"
 
 echo "Installing launchd plist..."
 sed "s|{{HOME}}|$HOME|g" "$SCRIPT_DIR/$PLIST_NAME.plist" > "$PLIST_DIR/$PLIST_NAME.plist"
@@ -19,4 +19,4 @@ launchctl unload "$PLIST_DIR/$PLIST_NAME.plist" 2>/dev/null || true
 launchctl load "$PLIST_DIR/$PLIST_NAME.plist"
 
 echo "Done. Verify with: launchctl list $PLIST_NAME"
-echo "Test run:          $BIN_DIR/claude-usage-report --dry-run"
+echo "Test run:          $BIN_DIR/claude-usage-report.py --dry-run"

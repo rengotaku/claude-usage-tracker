@@ -100,7 +100,7 @@ make uninstall
 
 ## 週次レポート自動投稿
 
-`scripts/report_usage.sh` が毎週月曜 09:00 に [Discussion #34](https://github.com/rengotaku/claude-usage-tracker/discussions/34) へ使用量レポートを自動投稿する。
+`scripts/report_usage.py` が毎週月曜 09:00 に [Discussion #34](https://github.com/rengotaku/claude-usage-tracker/discussions/34) へ使用量レポートを自動投稿する。
 
 **レポート内容**
 
@@ -120,7 +120,7 @@ make uninstall
 bash scripts/systemd/install.sh
 
 # 動作確認
-claude-usage-report --dry-run
+claude-usage-report.py --dry-run
 
 # ログ確認
 journalctl --user -u claude-usage-report
@@ -138,7 +138,7 @@ GH_TOKEN=ghp_xxxx
 bash scripts/launchd/install.sh
 
 # 動作確認
-claude-usage-report --dry-run
+claude-usage-report.py --dry-run
 
 # ログ確認
 tail -f ~/.local/share/claude-usage-tracker/report.log
@@ -148,10 +148,10 @@ tail -f ~/.local/share/claude-usage-tracker/report.log
 
 ```bash
 # 投稿せず stdout に出力
-claude-usage-report --dry-run
+claude-usage-report.py --dry-run
 
 # 前回と同一内容でも強制投稿
-claude-usage-report --force
+claude-usage-report.py --force
 ```
 
 ### 環境変数

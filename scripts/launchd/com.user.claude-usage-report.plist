@@ -7,7 +7,7 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>{{HOME}}/.local/bin/claude-usage-report</string>
+        <string>{{HOME}}/.local/bin/claude-usage-report.py</string>
     </array>
 
     <!-- Every Monday at 09:00 local time -->
