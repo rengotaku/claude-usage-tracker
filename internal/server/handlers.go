@@ -80,14 +80,15 @@ type tokenBreakdown struct {
 }
 
 type snapshotItem struct {
-	TakenAt            string          `json:"taken_at"`
-	BlockStartedAt     string          `json:"block_started_at"`
-	BlockEndedAt       string          `json:"block_ended_at,omitempty"`
-	SessionTokens      int             `json:"session_tokens"`
-	Tokens             tokenBreakdown  `json:"tokens"`
-	SessionRatio       float64         `json:"session_ratio"`
-	WeeklyTokens       int             `json:"weekly_tokens"`
-	WeeklySonnetTokens int             `json:"weekly_sonnet_tokens"`
+	TakenAt              string                    `json:"taken_at"`
+	BlockStartedAt       string                    `json:"block_started_at"`
+	BlockEndedAt         string                    `json:"block_ended_at,omitempty"`
+	SessionTokens        int                       `json:"session_tokens"`
+	Tokens               tokenBreakdown            `json:"tokens"`
+	SessionRatio         float64                   `json:"session_ratio"`
+	WeeklyTokens         int                       `json:"weekly_tokens"`
+	WeeklySonnetTokens   int                       `json:"weekly_sonnet_tokens"`
+	WeeklyModelBreakdown map[string]tokenBreakdown `json:"weekly_model_breakdown,omitempty"`
 }
 
 type snapshotsResponse struct {
@@ -126,6 +127,17 @@ func (h *Handler) Snapshots(w http.ResponseWriter, r *http.Request) {
 			SessionRatio:       s.UsageRatio,
 			WeeklyTokens:       s.WeeklyTokens,
 			WeeklySonnetTokens: s.WeeklySonnetTokens,
+		}
+		if len(s.WeeklyModelBreakdown) > 0 {
+			item.WeeklyModelBreakdown = make(map[string]tokenBreakdown, len(s.WeeklyModelBreakdown))
+			for model, bd := range s.WeeklyModelBreakdown {
+				item.WeeklyModelBreakdown[model] = tokenBreakdown{
+					Input:         bd.Input,
+					Output:        bd.Output,
+					CacheCreation: bd.CacheCreation,
+					CacheRead:     bd.CacheRead,
+				}
+			}
 		}
 		if s.BlockEndedAt != nil {
 			item.BlockEndedAt = s.BlockEndedAt.In(jst).Format(jsonTimeFormat)

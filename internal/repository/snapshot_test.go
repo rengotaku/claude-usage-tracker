@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rengotaku/claude-usage-tracker/internal/blocks"
 	"github.com/rengotaku/claude-usage-tracker/internal/repository"
 )
 
@@ -160,6 +161,47 @@ func TestLatestReturnsNewest(t *testing.T) {
 	}
 	if got.TokensUsed != 999 {
 		t.Errorf("Latest should return newest: got TokensUsed=%d, want 999", got.TokensUsed)
+	}
+}
+
+func TestSaveAndLatest_ModelBreakdown(t *testing.T) {
+	r := newTestRepo(t)
+	ctx := context.Background()
+
+	now := time.Now().UTC().Truncate(time.Second)
+	s := repository.Snapshot{
+		TakenAt:        now,
+		BlockStartedAt: now,
+		TokensUsed:     1000,
+		UsageRatio:     0.5,
+		WeeklyModelBreakdown: map[string]blocks.TokenBreakdown{
+			"claude-sonnet-4-6": {Input: 100, Output: 200, CacheCreation: 10, CacheRead: 50},
+			"claude-haiku-4-5":  {Input: 50, Output: 30},
+		},
+	}
+	if err := r.Save(ctx, s); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	got, err := r.Latest(ctx)
+	if err != nil {
+		t.Fatalf("latest: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected snapshot")
+	}
+	sonnet, ok := got.WeeklyModelBreakdown["claude-sonnet-4-6"]
+	if !ok {
+		t.Fatal("expected claude-sonnet-4-6 in WeeklyModelBreakdown")
+	}
+	if sonnet.Input != 100 || sonnet.Output != 200 || sonnet.CacheCreation != 10 || sonnet.CacheRead != 50 {
+		t.Errorf("sonnet: want {100 200 10 50}, got %+v", sonnet)
+	}
+	haiku, ok := got.WeeklyModelBreakdown["claude-haiku-4-5"]
+	if !ok {
+		t.Fatal("expected claude-haiku-4-5 in WeeklyModelBreakdown")
+	}
+	if haiku.Input != 50 || haiku.Output != 30 {
+		t.Errorf("haiku: want {50 30 0 0}, got %+v", haiku)
 	}
 }
 
