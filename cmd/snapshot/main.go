@@ -41,6 +41,7 @@ func main() {
 	snap := repository.Snapshot{
 		TakenAt:            time.Now().UTC(),
 		TokensUsed:         result.SessionTokens,
+		Tokens:             result.SessionBreakdown,
 		UsageRatio:         result.SessionRatio,
 		WeeklyTokens:       result.WeeklyTokens,
 		WeeklySonnetTokens: result.WeeklySonnetTokens,

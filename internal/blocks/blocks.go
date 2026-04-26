@@ -9,12 +9,26 @@ import (
 
 const blockDuration = 5 * time.Hour
 
+// TokenBreakdown holds per-type token counts for a block.
+type TokenBreakdown struct {
+	Input         int
+	Output        int
+	CacheCreation int
+	CacheRead     int
+}
+
+// Total returns the sum of all token types.
+func (t TokenBreakdown) Total() int {
+	return t.Input + t.Output + t.CacheCreation + t.CacheRead
+}
+
 // Block represents a 5-hour billing period.
 type Block struct {
 	StartTime   time.Time
 	EndTime     time.Time
 	IsActive    bool
 	TotalTokens int
+	Tokens      TokenBreakdown
 	EntryCount  int
 }
 
@@ -44,6 +58,10 @@ func Build(entries []jsonl.UsageEntry) []Block {
 			current = &blocks[len(blocks)-1]
 		}
 		current.TotalTokens += totalTokens(e)
+		current.Tokens.Input += e.InputTokens
+		current.Tokens.Output += e.OutputTokens
+		current.Tokens.CacheCreation += e.CacheCreationInputTokens
+		current.Tokens.CacheRead += e.CacheReadInputTokens
 		current.EntryCount++
 	}
 
