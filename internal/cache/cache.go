@@ -19,13 +19,14 @@ type entry struct {
 	SessionEndsAt *time.Time     `json:"session_ends_at,omitempty"`
 	ActiveBlock   *blocks.Block  `json:"active_block,omitempty"`
 
-	WeeklyTokens       int       `json:"weekly_tokens"`
-	WeeklyLimit        int       `json:"weekly_limit"`
-	WeeklyRatio        float64   `json:"weekly_ratio"`
-	WeeklySonnetTokens int       `json:"weekly_sonnet_tokens"`
-	WeeklySonnetLimit  int       `json:"weekly_sonnet_limit"`
-	WeeklySonnetRatio  float64   `json:"weekly_sonnet_ratio"`
-	WeeklyResetsAt     time.Time `json:"weekly_resets_at"`
+	WeeklyTokens         int                              `json:"weekly_tokens"`
+	WeeklyLimit          int                              `json:"weekly_limit"`
+	WeeklyRatio          float64                          `json:"weekly_ratio"`
+	WeeklySonnetTokens   int                              `json:"weekly_sonnet_tokens"`
+	WeeklySonnetLimit    int                              `json:"weekly_sonnet_limit"`
+	WeeklySonnetRatio    float64                          `json:"weekly_sonnet_ratio"`
+	WeeklyResetsAt       time.Time                        `json:"weekly_resets_at"`
+	WeeklyModelBreakdown map[string]blocks.TokenBreakdown `json:"weekly_model_breakdown,omitempty"`
 }
 
 // Load reads a cached UsageResult from path. Returns nil if the cache is missing,
@@ -49,37 +50,39 @@ func Load(path string, ttl time.Duration) (*service.UsageResult, error) {
 	}
 
 	return &service.UsageResult{
-		SessionTokens:      e.SessionTokens,
-		SessionLimit:       e.SessionLimit,
-		SessionRatio:       e.SessionRatio,
-		SessionEndsAt:      e.SessionEndsAt,
-		ActiveBlock:        e.ActiveBlock,
-		WeeklyTokens:       e.WeeklyTokens,
-		WeeklyLimit:        e.WeeklyLimit,
-		WeeklyRatio:        e.WeeklyRatio,
-		WeeklySonnetTokens: e.WeeklySonnetTokens,
-		WeeklySonnetLimit:  e.WeeklySonnetLimit,
-		WeeklySonnetRatio:  e.WeeklySonnetRatio,
-		WeeklyResetsAt:     e.WeeklyResetsAt,
+		SessionTokens:        e.SessionTokens,
+		SessionLimit:         e.SessionLimit,
+		SessionRatio:         e.SessionRatio,
+		SessionEndsAt:        e.SessionEndsAt,
+		ActiveBlock:          e.ActiveBlock,
+		WeeklyTokens:         e.WeeklyTokens,
+		WeeklyLimit:          e.WeeklyLimit,
+		WeeklyRatio:          e.WeeklyRatio,
+		WeeklySonnetTokens:   e.WeeklySonnetTokens,
+		WeeklySonnetLimit:    e.WeeklySonnetLimit,
+		WeeklySonnetRatio:    e.WeeklySonnetRatio,
+		WeeklyResetsAt:       e.WeeklyResetsAt,
+		WeeklyModelBreakdown: e.WeeklyModelBreakdown,
 	}, nil
 }
 
 // Save writes result to path as a JSON cache entry.
 func Save(path string, result *service.UsageResult) error {
 	e := entry{
-		CachedAt:           time.Now(),
-		SessionTokens:      result.SessionTokens,
-		SessionLimit:       result.SessionLimit,
-		SessionRatio:       result.SessionRatio,
-		SessionEndsAt:      result.SessionEndsAt,
-		ActiveBlock:        result.ActiveBlock,
-		WeeklyTokens:       result.WeeklyTokens,
-		WeeklyLimit:        result.WeeklyLimit,
-		WeeklyRatio:        result.WeeklyRatio,
-		WeeklySonnetTokens: result.WeeklySonnetTokens,
-		WeeklySonnetLimit:  result.WeeklySonnetLimit,
-		WeeklySonnetRatio:  result.WeeklySonnetRatio,
-		WeeklyResetsAt:     result.WeeklyResetsAt,
+		CachedAt:             time.Now(),
+		SessionTokens:        result.SessionTokens,
+		SessionLimit:         result.SessionLimit,
+		SessionRatio:         result.SessionRatio,
+		SessionEndsAt:        result.SessionEndsAt,
+		ActiveBlock:          result.ActiveBlock,
+		WeeklyTokens:         result.WeeklyTokens,
+		WeeklyLimit:          result.WeeklyLimit,
+		WeeklyRatio:          result.WeeklyRatio,
+		WeeklySonnetTokens:   result.WeeklySonnetTokens,
+		WeeklySonnetLimit:    result.WeeklySonnetLimit,
+		WeeklySonnetRatio:    result.WeeklySonnetRatio,
+		WeeklyResetsAt:       result.WeeklyResetsAt,
+		WeeklyModelBreakdown: result.WeeklyModelBreakdown,
 	}
 	data, err := json.Marshal(e)
 	if err != nil {
