@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/rengotaku/claude-usage-tracker/internal/cache"
@@ -31,13 +32,14 @@ type jsonOutput struct {
 		EndsAt     string             `json:"ends_at,omitempty"`
 	} `json:"session"`
 	Weekly struct {
-		TokensUsed   int     `json:"tokens_used"`
-		Limit        int     `json:"limit,omitempty"`
-		Ratio        float64 `json:"ratio,omitempty"`
-		SonnetTokens int     `json:"sonnet_tokens_used"`
-		SonnetLimit  int     `json:"sonnet_limit,omitempty"`
-		SonnetRatio  float64 `json:"sonnet_ratio,omitempty"`
-		ResetsAt     string  `json:"resets_at"`
+		TokensUsed     int                            `json:"tokens_used"`
+		Limit          int                            `json:"limit,omitempty"`
+		Ratio          float64                        `json:"ratio,omitempty"`
+		SonnetTokens   int                            `json:"sonnet_tokens_used"`
+		SonnetLimit    int                            `json:"sonnet_limit,omitempty"`
+		SonnetRatio    float64                        `json:"sonnet_ratio,omitempty"`
+		ResetsAt       string                         `json:"resets_at"`
+		ModelBreakdown map[string]tokenBreakdownJSON  `json:"model_breakdown,omitempty"`
 	} `json:"weekly"`
 }
 
@@ -46,12 +48,15 @@ func main() {
 
 	noCache := false
 	jsonFlag := false
+	modelBreakdown := false
 	for _, arg := range os.Args[1:] {
 		switch arg {
 		case "--json":
 			jsonFlag = true
 		case "--no-cache":
 			noCache = true
+		case "--model-breakdown":
+			modelBreakdown = true
 		}
 	}
 
@@ -112,6 +117,17 @@ func main() {
 		out.Weekly.SonnetLimit = result.WeeklySonnetLimit
 		out.Weekly.SonnetRatio = result.WeeklySonnetRatio
 		out.Weekly.ResetsAt = result.WeeklyResetsAt.In(jst).Format("2006-01-02T15:04:05+09:00")
+		if len(result.WeeklyModelBreakdown) > 0 {
+			out.Weekly.ModelBreakdown = make(map[string]tokenBreakdownJSON, len(result.WeeklyModelBreakdown))
+			for model, bd := range result.WeeklyModelBreakdown {
+				out.Weekly.ModelBreakdown[model] = tokenBreakdownJSON{
+					Input:         bd.Input,
+					Output:        bd.Output,
+					CacheCreation: bd.CacheCreation,
+					CacheRead:     bd.CacheRead,
+				}
+			}
+		}
 
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -129,6 +145,19 @@ func main() {
 		formatM(b.Input), formatM(b.Output), formatM(b.CacheCreation), formatM(b.CacheRead))
 	fmt.Printf("Weekly (All)      %s\n", weeklyLine(result.WeeklyTokens, result.WeeklyLimit, result.WeeklyRatio, resetsAt))
 	fmt.Printf("Weekly (Sonnet)   %s\n", weeklyLine(result.WeeklySonnetTokens, result.WeeklySonnetLimit, result.WeeklySonnetRatio, resetsAt))
+
+	if modelBreakdown && len(result.WeeklyModelBreakdown) > 0 {
+		fmt.Println("Weekly by model:")
+		models := make([]string, 0, len(result.WeeklyModelBreakdown))
+		for m := range result.WeeklyModelBreakdown {
+			models = append(models, m)
+		}
+		sort.Strings(models)
+		for _, m := range models {
+			bd := result.WeeklyModelBreakdown[m]
+			fmt.Printf("  %-38s %s\n", m, formatM(bd.Total()))
+		}
+	}
 }
 
 func sessionLine(r *service.UsageResult) string {

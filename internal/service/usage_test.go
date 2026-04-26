@@ -3,6 +3,7 @@ package service_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -90,6 +91,36 @@ func TestCompute_WeeklyLimit(t *testing.T) {
 	wantSonnet := float64(300) / float64(500_000)
 	if result.WeeklySonnetRatio != wantSonnet {
 		t.Errorf("expected sonnet ratio %f, got %f", wantSonnet, result.WeeklySonnetRatio)
+	}
+}
+
+func TestCompute_WeeklyModelBreakdown(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now().UTC()
+	writeMixedJSONL(t, dir, now)
+
+	cfg := service.Config{LogDir: dir}
+	result, err := service.Compute(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.WeeklyModelBreakdown) != 2 {
+		t.Fatalf("expected 2 models in WeeklyModelBreakdown, got %d", len(result.WeeklyModelBreakdown))
+	}
+	sonnet, ok := result.WeeklyModelBreakdown["claude-sonnet-4-6"]
+	if !ok {
+		t.Fatal("expected claude-sonnet-4-6 in WeeklyModelBreakdown")
+	}
+	if sonnet.Input != 100 || sonnet.Output != 200 {
+		t.Errorf("sonnet: want Input=100,Output=200, got Input=%d,Output=%d", sonnet.Input, sonnet.Output)
+	}
+	haiku, ok := result.WeeklyModelBreakdown["claude-haiku-4-5"]
+	if !ok {
+		t.Fatal("expected claude-haiku-4-5 in WeeklyModelBreakdown")
+	}
+	if haiku.Input != 50 || haiku.Output != 30 {
+		t.Errorf("haiku: want Input=50,Output=30, got Input=%d,Output=%d", haiku.Input, haiku.Output)
 	}
 }
 
@@ -260,6 +291,18 @@ func writeCredentials(t *testing.T, home, body string) {
 	}
 	path := filepath.Join(credDir, ".credentials.json")
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeMixedJSONL(t *testing.T, dir string, ts time.Time) {
+	t.Helper()
+	lines := []string{
+		`{"type":"assistant","uuid":"u1","timestamp":"` + ts.Format(time.RFC3339) + `","message":{"id":"msg1","model":"claude-sonnet-4-6","usage":{"input_tokens":100,"output_tokens":200,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}`,
+		`{"type":"assistant","uuid":"u2","timestamp":"` + ts.Add(time.Minute).Format(time.RFC3339) + `","message":{"id":"msg2","model":"claude-haiku-4-5","usage":{"input_tokens":50,"output_tokens":30,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}`,
+	}
+	path := filepath.Join(dir, "test.jsonl")
+	if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }

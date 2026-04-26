@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -19,14 +20,15 @@ const timeLayout = time.RFC3339
 
 // Snapshot represents a point-in-time record of token usage within a block.
 type Snapshot struct {
-	TakenAt            time.Time
-	BlockStartedAt     time.Time
-	BlockEndedAt       *time.Time
-	TokensUsed         int
-	Tokens             blocks.TokenBreakdown
-	UsageRatio         float64
-	WeeklyTokens       int
-	WeeklySonnetTokens int
+	TakenAt              time.Time
+	BlockStartedAt       time.Time
+	BlockEndedAt         *time.Time
+	TokensUsed           int
+	Tokens               blocks.TokenBreakdown
+	UsageRatio           float64
+	WeeklyTokens         int
+	WeeklySonnetTokens   int
+	WeeklyModelBreakdown map[string]blocks.TokenBreakdown
 }
 
 // SnapshotRepository persists Snapshot records to SQLite.
@@ -85,6 +87,7 @@ func (r *SnapshotRepository) migrate(ctx context.Context) error {
 		"ALTER TABLE snapshots ADD COLUMN output_tokens         INTEGER NOT NULL DEFAULT 0",
 		"ALTER TABLE snapshots ADD COLUMN cache_creation_tokens INTEGER NOT NULL DEFAULT 0",
 		"ALTER TABLE snapshots ADD COLUMN cache_read_tokens     INTEGER NOT NULL DEFAULT 0",
+		"ALTER TABLE snapshots ADD COLUMN model_breakdown       TEXT NOT NULL DEFAULT '{}'",
 	} {
 		if _, err := r.db.ExecContext(ctx, col); err != nil {
 			if !strings.Contains(err.Error(), "duplicate column name") {
@@ -102,11 +105,16 @@ func (r *SnapshotRepository) Save(ctx context.Context, s Snapshot) error {
 		v := s.BlockEndedAt.UTC().Truncate(time.Second).Format(timeLayout)
 		endedAt = &v
 	}
-	_, err := r.db.ExecContext(ctx,
+	mbJSON, err := json.Marshal(s.WeeklyModelBreakdown)
+	if err != nil {
+		return fmt.Errorf("marshal model_breakdown: %w", err)
+	}
+	_, err = r.db.ExecContext(ctx,
 		`INSERT OR REPLACE INTO snapshots
 			(taken_at, block_started_at, block_ended_at, tokens_used, input_tokens, output_tokens,
-			 cache_creation_tokens, cache_read_tokens, usage_ratio, weekly_tokens, weekly_sonnet_tokens)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			 cache_creation_tokens, cache_read_tokens, usage_ratio, weekly_tokens, weekly_sonnet_tokens,
+			 model_breakdown)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		s.TakenAt.UTC().Truncate(time.Second).Format(timeLayout),
 		s.BlockStartedAt.UTC().Truncate(time.Second).Format(timeLayout),
 		endedAt,
@@ -118,6 +126,7 @@ func (r *SnapshotRepository) Save(ctx context.Context, s Snapshot) error {
 		s.UsageRatio,
 		s.WeeklyTokens,
 		s.WeeklySonnetTokens,
+		string(mbJSON),
 	)
 	if err != nil {
 		return fmt.Errorf("save snapshot: %w", err)
@@ -130,7 +139,7 @@ func (r *SnapshotRepository) Latest(ctx context.Context) (*Snapshot, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT taken_at, block_started_at, block_ended_at, tokens_used,
 		        input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens,
-		        usage_ratio, weekly_tokens, weekly_sonnet_tokens
+		        usage_ratio, weekly_tokens, weekly_sonnet_tokens, model_breakdown
 		 FROM snapshots ORDER BY taken_at DESC LIMIT 1`)
 	s, err := scanRow(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -144,7 +153,7 @@ func (r *SnapshotRepository) ListBetween(ctx context.Context, from, to time.Time
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT taken_at, block_started_at, block_ended_at, tokens_used,
 		        input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens,
-		        usage_ratio, weekly_tokens, weekly_sonnet_tokens
+		        usage_ratio, weekly_tokens, weekly_sonnet_tokens, model_breakdown
 		 FROM snapshots
 		 WHERE taken_at >= ? AND taken_at <= ?
 		 ORDER BY taken_at`,
@@ -197,10 +206,11 @@ func scan(s scanner) (*Snapshot, error) {
 		usageRatio         float64
 		weeklyTokens       int
 		weeklySonnetTokens int
+		modelBreakdownJSON string
 	)
 	if err := s.Scan(&takenAt, &blockStartedAt, &blockEndedAt, &tokensUsed,
 		&inputTokens, &outputTokens, &cacheCreation, &cacheRead,
-		&usageRatio, &weeklyTokens, &weeklySonnetTokens); err != nil {
+		&usageRatio, &weeklyTokens, &weeklySonnetTokens, &modelBreakdownJSON); err != nil {
 		return nil, err
 	}
 
@@ -213,6 +223,13 @@ func scan(s scanner) (*Snapshot, error) {
 		return nil, fmt.Errorf("parse block_started_at: %w", err)
 	}
 
+	var modelBreakdown map[string]blocks.TokenBreakdown
+	if modelBreakdownJSON != "" && modelBreakdownJSON != "{}" {
+		if err := json.Unmarshal([]byte(modelBreakdownJSON), &modelBreakdown); err != nil {
+			return nil, fmt.Errorf("unmarshal model_breakdown: %w", err)
+		}
+	}
+
 	snap := &Snapshot{
 		TakenAt:        ta.UTC(),
 		BlockStartedAt: bs.UTC(),
@@ -223,9 +240,10 @@ func scan(s scanner) (*Snapshot, error) {
 			CacheCreation: cacheCreation,
 			CacheRead:     cacheRead,
 		},
-		UsageRatio:         usageRatio,
-		WeeklyTokens:       weeklyTokens,
-		WeeklySonnetTokens: weeklySonnetTokens,
+		UsageRatio:           usageRatio,
+		WeeklyTokens:         weeklyTokens,
+		WeeklySonnetTokens:   weeklySonnetTokens,
+		WeeklyModelBreakdown: modelBreakdown,
 	}
 	if blockEndedAt != nil {
 		be, err := time.Parse(timeLayout, *blockEndedAt)
