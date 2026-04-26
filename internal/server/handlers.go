@@ -72,14 +72,22 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 
 // --- /usage/snapshots ---
 
+type tokenBreakdown struct {
+	Input         int `json:"input"`
+	Output        int `json:"output"`
+	CacheCreation int `json:"cache_creation"`
+	CacheRead     int `json:"cache_read"`
+}
+
 type snapshotItem struct {
-	TakenAt            string  `json:"taken_at"`
-	BlockStartedAt     string  `json:"block_started_at"`
-	BlockEndedAt       string  `json:"block_ended_at,omitempty"`
-	SessionTokens      int     `json:"session_tokens"`
-	SessionRatio       float64 `json:"session_ratio"`
-	WeeklyTokens       int     `json:"weekly_tokens"`
-	WeeklySonnetTokens int     `json:"weekly_sonnet_tokens"`
+	TakenAt            string          `json:"taken_at"`
+	BlockStartedAt     string          `json:"block_started_at"`
+	BlockEndedAt       string          `json:"block_ended_at,omitempty"`
+	SessionTokens      int             `json:"session_tokens"`
+	Tokens             tokenBreakdown  `json:"tokens"`
+	SessionRatio       float64         `json:"session_ratio"`
+	WeeklyTokens       int             `json:"weekly_tokens"`
+	WeeklySonnetTokens int             `json:"weekly_sonnet_tokens"`
 }
 
 type snapshotsResponse struct {
@@ -106,9 +114,15 @@ func (h *Handler) Snapshots(w http.ResponseWriter, r *http.Request) {
 	items := make([]snapshotItem, 0, len(snaps))
 	for _, s := range snaps {
 		item := snapshotItem{
-			TakenAt:            s.TakenAt.In(jst).Format(jsonTimeFormat),
-			BlockStartedAt:     s.BlockStartedAt.In(jst).Format(jsonTimeFormat),
-			SessionTokens:      s.TokensUsed,
+			TakenAt:        s.TakenAt.In(jst).Format(jsonTimeFormat),
+			BlockStartedAt: s.BlockStartedAt.In(jst).Format(jsonTimeFormat),
+			SessionTokens:  s.TokensUsed,
+			Tokens: tokenBreakdown{
+				Input:         s.Tokens.Input,
+				Output:        s.Tokens.Output,
+				CacheCreation: s.Tokens.CacheCreation,
+				CacheRead:     s.Tokens.CacheRead,
+			},
 			SessionRatio:       s.UsageRatio,
 			WeeklyTokens:       s.WeeklyTokens,
 			WeeklySonnetTokens: s.WeeklySonnetTokens,

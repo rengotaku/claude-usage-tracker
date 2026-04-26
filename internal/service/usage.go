@@ -74,11 +74,12 @@ func ValidateConfig(cfg Config) error {
 
 // UsageResult holds session and weekly usage metrics.
 type UsageResult struct {
-	SessionTokens int
-	SessionLimit  int
-	SessionRatio  float64
-	SessionEndsAt *time.Time
-	ActiveBlock   *blocks.Block
+	SessionTokens   int
+	SessionBreakdown blocks.TokenBreakdown
+	SessionLimit    int
+	SessionRatio    float64
+	SessionEndsAt   *time.Time
+	ActiveBlock     *blocks.Block
 
 	WeeklyTokens       int
 	WeeklyLimit        int
@@ -108,6 +109,7 @@ func Compute(cfg Config) (*UsageResult, error) {
 
 	if active != nil {
 		result.SessionTokens = active.TotalTokens
+		result.SessionBreakdown = active.Tokens
 		result.ActiveBlock = active
 		end := active.EndTime
 		result.SessionEndsAt = &end
