@@ -87,6 +87,7 @@ type UsageResult struct {
 	WeeklySonnetTokens  int
 	WeeklySonnetLimit   int
 	WeeklySonnetRatio   float64
+	WeeklyStartsAt      time.Time
 	WeeklyResetsAt      time.Time
 	WeeklyModelBreakdown map[string]blocks.TokenBreakdown // per-model token breakdown for current week
 }
@@ -105,6 +106,7 @@ func Compute(cfg Config) (*UsageResult, error) {
 		SessionLimit:         cfg.SessionLimit,
 		WeeklyLimit:          cfg.WeeklyLimit,
 		WeeklySonnetLimit:    cfg.WeeklySonnetLimit,
+		WeeklyStartsAt:       lastWeeklyReset(cfg.WeeklyResetDay, cfg.WeeklyResetHour),
 		WeeklyResetsAt:       nextWeeklyReset(cfg.WeeklyResetDay, cfg.WeeklyResetHour),
 		WeeklyModelBreakdown: make(map[string]blocks.TokenBreakdown),
 	}

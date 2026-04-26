@@ -1,0 +1,9 @@
+[Unit]
+Description=Claude usage weekly report timer
+
+[Timer]
+OnCalendar=Mon *-*-* 09:00:00 Asia/Tokyo
+Persistent=true
+
+[Install]
+WantedBy=timers.target

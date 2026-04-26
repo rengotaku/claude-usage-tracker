@@ -1,0 +1,11 @@
+[Unit]
+Description=Claude usage weekly report poster
+After=network.target
+
+[Service]
+Type=oneshot
+Environment=CLAUDE_USAGE_TRACKER_CONFIG=%h/.config/claude-usage-tracker/config.yaml
+EnvironmentFile=-%h/.config/claude-usage-tracker/report-env
+ExecStart=%h/.local/bin/claude-usage-tracker-report
+StandardOutput=append:%h/.local/share/claude-usage-tracker/report.log
+StandardError=append:%h/.local/share/claude-usage-tracker/report.log

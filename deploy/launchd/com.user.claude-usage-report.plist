@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.claude-usage-report</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{HOME}}/.local/bin/claude-usage-tracker-report</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>2</integer>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>CLAUDE_USAGE_TRACKER_CONFIG</key>
+        <string>{{HOME}}/.config/claude-usage-tracker/config.yaml</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>{{HOME}}/.local/share/claude-usage-tracker/report.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>{{HOME}}/.local/share/claude-usage-tracker/report.log</string>
+</dict>
+</plist>
