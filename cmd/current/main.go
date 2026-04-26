@@ -15,12 +15,20 @@ import (
 
 var jst = time.FixedZone("JST", 9*60*60)
 
+type tokenBreakdownJSON struct {
+	Input         int `json:"input"`
+	Output        int `json:"output"`
+	CacheCreation int `json:"cache_creation"`
+	CacheRead     int `json:"cache_read"`
+}
+
 type jsonOutput struct {
 	Session struct {
-		TokensUsed int     `json:"tokens_used"`
-		Limit      int     `json:"limit,omitempty"`
-		Ratio      float64 `json:"ratio,omitempty"`
-		EndsAt     string  `json:"ends_at,omitempty"`
+		TokensUsed int                `json:"tokens_used"`
+		Breakdown  tokenBreakdownJSON `json:"breakdown"`
+		Limit      int                `json:"limit,omitempty"`
+		Ratio      float64            `json:"ratio,omitempty"`
+		EndsAt     string             `json:"ends_at,omitempty"`
 	} `json:"session"`
 	Weekly struct {
 		TokensUsed   int     `json:"tokens_used"`
@@ -86,6 +94,12 @@ func main() {
 	if jsonFlag {
 		out := jsonOutput{}
 		out.Session.TokensUsed = result.SessionTokens
+		out.Session.Breakdown = tokenBreakdownJSON{
+			Input:         result.SessionBreakdown.Input,
+			Output:        result.SessionBreakdown.Output,
+			CacheCreation: result.SessionBreakdown.CacheCreation,
+			CacheRead:     result.SessionBreakdown.CacheRead,
+		}
 		out.Session.Limit = result.SessionLimit
 		out.Session.Ratio = result.SessionRatio
 		if result.SessionEndsAt != nil {
@@ -110,6 +124,9 @@ func main() {
 
 	resetsAt := result.WeeklyResetsAt.In(jst).Format("Jan 2, 3pm")
 	fmt.Printf("Current session   %s\n", sessionLine(result))
+	b := result.SessionBreakdown
+	fmt.Printf("  input %-8s  output %-8s  cache_creation %-8s  cache_read %s\n",
+		formatM(b.Input), formatM(b.Output), formatM(b.CacheCreation), formatM(b.CacheRead))
 	fmt.Printf("Weekly (All)      %s\n", weeklyLine(result.WeeklyTokens, result.WeeklyLimit, result.WeeklyRatio, resetsAt))
 	fmt.Printf("Weekly (Sonnet)   %s\n", weeklyLine(result.WeeklySonnetTokens, result.WeeklySonnetLimit, result.WeeklySonnetRatio, resetsAt))
 }
