@@ -18,6 +18,17 @@ func entry(ts time.Time, input, output, cacheCreate, cacheRead int) jsonl.UsageE
 	}
 }
 
+func entryWithModel(ts time.Time, model string, input, output, cacheCreate, cacheRead int) jsonl.UsageEntry {
+	return jsonl.UsageEntry{
+		Timestamp:                ts,
+		Model:                    model,
+		InputTokens:              input,
+		OutputTokens:             output,
+		CacheCreationInputTokens: cacheCreate,
+		CacheReadInputTokens:     cacheRead,
+	}
+}
+
 func utc(year int, month time.Month, day, hour, min int) time.Time {
 	return time.Date(year, month, day, hour, min, 0, 0, time.UTC)
 }
@@ -113,6 +124,49 @@ func TestBuild_UnsortedEntriesAreSorted(t *testing.T) {
 	}
 	if result[0].EntryCount != 2 {
 		t.Errorf("EntryCount: want 2, got %d", result[0].EntryCount)
+	}
+}
+
+func TestBuild_ModelBreakdown(t *testing.T) {
+	entries := []jsonl.UsageEntry{
+		entryWithModel(utc(2026, 4, 19, 10, 0), "claude-sonnet-4-6", 100, 200, 0, 0),
+		entryWithModel(utc(2026, 4, 19, 11, 0), "claude-haiku-4-5", 50, 30, 10, 5),
+		entryWithModel(utc(2026, 4, 19, 12, 0), "claude-sonnet-4-6", 20, 10, 0, 0),
+	}
+	result := blocks.Build(entries)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 block, got %d", len(result))
+	}
+	b := result[0]
+
+	sonnet, ok := b.ModelBreakdown["claude-sonnet-4-6"]
+	if !ok {
+		t.Fatal("expected claude-sonnet-4-6 in ModelBreakdown")
+	}
+	if sonnet.Input != 120 || sonnet.Output != 210 {
+		t.Errorf("sonnet: want Input=120,Output=210 got Input=%d,Output=%d", sonnet.Input, sonnet.Output)
+	}
+
+	haiku, ok := b.ModelBreakdown["claude-haiku-4-5"]
+	if !ok {
+		t.Fatal("expected claude-haiku-4-5 in ModelBreakdown")
+	}
+	if haiku.Input != 50 || haiku.Output != 30 || haiku.CacheCreation != 10 || haiku.CacheRead != 5 {
+		t.Errorf("haiku: want Input=50,Output=30,CacheCreation=10,CacheRead=5, got Input=%d,Output=%d,CacheCreation=%d,CacheRead=%d",
+			haiku.Input, haiku.Output, haiku.CacheCreation, haiku.CacheRead)
+	}
+}
+
+func TestBuild_ModelBreakdown_EmptyModel(t *testing.T) {
+	entries := []jsonl.UsageEntry{
+		entry(utc(2026, 4, 19, 10, 0), 10, 20, 0, 0),
+	}
+	result := blocks.Build(entries)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 block, got %d", len(result))
+	}
+	if len(result[0].ModelBreakdown) != 0 {
+		t.Errorf("expected empty ModelBreakdown for entry with no model, got %v", result[0].ModelBreakdown)
 	}
 }
 

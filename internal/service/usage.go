@@ -81,13 +81,14 @@ type UsageResult struct {
 	SessionEndsAt   *time.Time
 	ActiveBlock     *blocks.Block
 
-	WeeklyTokens       int
-	WeeklyLimit        int
-	WeeklyRatio        float64
-	WeeklySonnetTokens int
-	WeeklySonnetLimit  int
-	WeeklySonnetRatio  float64
-	WeeklyResetsAt     time.Time
+	WeeklyTokens        int
+	WeeklyLimit         int
+	WeeklyRatio         float64
+	WeeklySonnetTokens  int
+	WeeklySonnetLimit   int
+	WeeklySonnetRatio   float64
+	WeeklyResetsAt      time.Time
+	WeeklyModelBreakdown map[string]blocks.TokenBreakdown // per-model token breakdown for current week
 }
 
 // Compute parses JSONL logs and returns session + weekly usage.
@@ -101,10 +102,11 @@ func Compute(cfg Config) (*UsageResult, error) {
 	active := blocks.ActiveBlock(bs)
 
 	result := &UsageResult{
-		SessionLimit:      cfg.SessionLimit,
-		WeeklyLimit:       cfg.WeeklyLimit,
-		WeeklySonnetLimit: cfg.WeeklySonnetLimit,
-		WeeklyResetsAt:    nextWeeklyReset(cfg.WeeklyResetDay, cfg.WeeklyResetHour),
+		SessionLimit:         cfg.SessionLimit,
+		WeeklyLimit:          cfg.WeeklyLimit,
+		WeeklySonnetLimit:    cfg.WeeklySonnetLimit,
+		WeeklyResetsAt:       nextWeeklyReset(cfg.WeeklyResetDay, cfg.WeeklyResetHour),
+		WeeklyModelBreakdown: make(map[string]blocks.TokenBreakdown),
 	}
 
 	if active != nil {
@@ -127,6 +129,14 @@ func Compute(cfg Config) (*UsageResult, error) {
 		result.WeeklyTokens += t
 		if isSonnet(e.Model) {
 			result.WeeklySonnetTokens += t
+		}
+		if e.Model != "" {
+			mb := result.WeeklyModelBreakdown[e.Model]
+			mb.Input += e.InputTokens
+			mb.Output += e.OutputTokens
+			mb.CacheCreation += e.CacheCreationInputTokens
+			mb.CacheRead += e.CacheReadInputTokens
+			result.WeeklyModelBreakdown[e.Model] = mb
 		}
 	}
 	if cfg.WeeklyLimit > 0 {
