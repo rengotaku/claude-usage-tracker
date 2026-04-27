@@ -14,11 +14,16 @@ cd "$SCRIPT_DIR/../.."
 CGO_ENABLED=0 go build -o "$BIN_DIR/claude-usage-tracker-snapshot" ./cmd/snapshot
 CGO_ENABLED=0 go build -o "$BIN_DIR/claude-usage-tracker-current" ./cmd/current
 CGO_ENABLED=0 go build -o "$BIN_DIR/claude-usage-tracker-setup" ./cmd/setup
+CGO_ENABLED=0 go build -o "$BIN_DIR/claude-usage-tracker-report" ./cmd/report
 
-echo "Installing launchd plist..."
+echo "Installing launchd plists..."
+REPORT_PLIST_NAME="com.user.claude-usage-report"
 sed "s|{{HOME}}|$HOME|g" "$SCRIPT_DIR/$PLIST_NAME.plist" > "$PLIST_DIR/$PLIST_NAME.plist"
+sed "s|{{HOME}}|$HOME|g" "$SCRIPT_DIR/$REPORT_PLIST_NAME.plist" > "$PLIST_DIR/$REPORT_PLIST_NAME.plist"
 
 launchctl unload "$PLIST_DIR/$PLIST_NAME.plist" 2>/dev/null || true
 launchctl load "$PLIST_DIR/$PLIST_NAME.plist"
+launchctl unload "$PLIST_DIR/$REPORT_PLIST_NAME.plist" 2>/dev/null || true
+launchctl load "$PLIST_DIR/$REPORT_PLIST_NAME.plist"
 
-echo "Done. Verify with: launchctl list $PLIST_NAME"
+echo "Done. Verify with: launchctl list $PLIST_NAME && launchctl list $REPORT_PLIST_NAME"
