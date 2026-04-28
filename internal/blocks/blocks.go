@@ -22,6 +22,26 @@ func (t TokenBreakdown) Total() int {
 	return t.Input + t.Output + t.CacheCreation + t.CacheRead
 }
 
+// FromEntry constructs a TokenBreakdown from a single usage entry.
+func FromEntry(e jsonl.UsageEntry) TokenBreakdown {
+	return TokenBreakdown{
+		Input:         e.InputTokens,
+		Output:        e.OutputTokens,
+		CacheCreation: e.CacheCreationInputTokens,
+		CacheRead:     e.CacheReadInputTokens,
+	}
+}
+
+// Add returns the sum of two breakdowns. The receiver is not mutated.
+func (t TokenBreakdown) Add(other TokenBreakdown) TokenBreakdown {
+	return TokenBreakdown{
+		Input:         t.Input + other.Input,
+		Output:        t.Output + other.Output,
+		CacheCreation: t.CacheCreation + other.CacheCreation,
+		CacheRead:     t.CacheRead + other.CacheRead,
+	}
+}
+
 // Block represents a 5-hour billing period.
 type Block struct {
 	StartTime      time.Time
@@ -59,19 +79,12 @@ func Build(entries []jsonl.UsageEntry) []Block {
 			blocks = append(blocks, b)
 			current = &blocks[len(blocks)-1]
 		}
-		current.TotalTokens += totalTokens(e)
-		current.Tokens.Input += e.InputTokens
-		current.Tokens.Output += e.OutputTokens
-		current.Tokens.CacheCreation += e.CacheCreationInputTokens
-		current.Tokens.CacheRead += e.CacheReadInputTokens
+		bd := FromEntry(e)
+		current.TotalTokens += bd.Total()
+		current.Tokens = current.Tokens.Add(bd)
 		current.EntryCount++
 		if e.Model != "" {
-			mb := current.ModelBreakdown[e.Model]
-			mb.Input += e.InputTokens
-			mb.Output += e.OutputTokens
-			mb.CacheCreation += e.CacheCreationInputTokens
-			mb.CacheRead += e.CacheReadInputTokens
-			current.ModelBreakdown[e.Model] = mb
+			current.ModelBreakdown[e.Model] = current.ModelBreakdown[e.Model].Add(bd)
 		}
 	}
 
@@ -93,9 +106,4 @@ func ActiveBlock(blocks []Block) *Block {
 		}
 	}
 	return nil
-}
-
-
-func totalTokens(e jsonl.UsageEntry) int {
-	return e.InputTokens + e.OutputTokens + e.CacheCreationInputTokens + e.CacheReadInputTokens
 }

@@ -127,18 +127,14 @@ func Compute(cfg Config) (*UsageResult, error) {
 		if e.Timestamp.Before(weekStart) {
 			continue
 		}
-		t := totalTokens(e)
+		bd := blocks.FromEntry(e)
+		t := bd.Total()
 		result.WeeklyTokens += t
 		if isSonnet(e.Model) {
 			result.WeeklySonnetTokens += t
 		}
 		if e.Model != "" {
-			mb := result.WeeklyModelBreakdown[e.Model]
-			mb.Input += e.InputTokens
-			mb.Output += e.OutputTokens
-			mb.CacheCreation += e.CacheCreationInputTokens
-			mb.CacheRead += e.CacheReadInputTokens
-			result.WeeklyModelBreakdown[e.Model] = mb
+			result.WeeklyModelBreakdown[e.Model] = result.WeeklyModelBreakdown[e.Model].Add(bd)
 		}
 	}
 	if cfg.WeeklyLimit > 0 {
@@ -163,10 +159,6 @@ func lastWeeklyReset(day time.Weekday, hour int) time.Time {
 
 func nextWeeklyReset(day time.Weekday, hour int) time.Time {
 	return lastWeeklyReset(day, hour).AddDate(0, 0, 7)
-}
-
-func totalTokens(e jsonl.UsageEntry) int {
-	return e.InputTokens + e.OutputTokens + e.CacheCreationInputTokens + e.CacheReadInputTokens
 }
 
 func isSonnet(model string) bool {
