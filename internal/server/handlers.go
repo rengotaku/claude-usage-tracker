@@ -37,6 +37,22 @@ func toTokenBreakdown(b blocks.TokenBreakdown) tokenBreakdown {
 	}
 }
 
+// loadRange parses from/to query params and loads snapshots in that range.
+// On failure it writes the appropriate error response and returns ok=false.
+func (h *Handler) loadRange(w http.ResponseWriter, r *http.Request, defaultWindow time.Duration) (snaps []repository.Snapshot, from, to time.Time, ok bool) {
+	from, to, err := parseRange(r, defaultWindow)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return nil, time.Time{}, time.Time{}, false
+	}
+	snaps, err = h.repo.ListBetween(r.Context(), from, to)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return nil, time.Time{}, time.Time{}, false
+	}
+	return snaps, from, to, true
+}
+
 // parseRange parses from/to query params. Supports RFC3339 or YYYY-MM-DD.
 // If either is missing, applies the provided default window ending at now.
 func parseRange(r *http.Request, defaultWindow time.Duration) (time.Time, time.Time, error) {
@@ -123,14 +139,8 @@ type periodDTO struct {
 }
 
 func (h *Handler) Snapshots(w http.ResponseWriter, r *http.Request) {
-	from, to, err := parseRange(r, 24*time.Hour)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	snaps, err := h.repo.ListBetween(r.Context(), from, to)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+	snaps, from, to, ok := h.loadRange(w, r, 24*time.Hour)
+	if !ok {
 		return
 	}
 	items := make([]snapshotItem, 0, len(snaps))
@@ -183,14 +193,8 @@ type blocksResponse struct {
 }
 
 func (h *Handler) Blocks(w http.ResponseWriter, r *http.Request) {
-	from, to, err := parseRange(r, 7*24*time.Hour)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	snaps, err := h.repo.ListBetween(r.Context(), from, to)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+	snaps, from, to, ok := h.loadRange(w, r, 7*24*time.Hour)
+	if !ok {
 		return
 	}
 	aggs := AggregateBlocks(snaps)
@@ -232,14 +236,8 @@ type dailyResponse struct {
 }
 
 func (h *Handler) Daily(w http.ResponseWriter, r *http.Request) {
-	from, to, err := parseRange(r, 7*24*time.Hour)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	snaps, err := h.repo.ListBetween(r.Context(), from, to)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+	snaps, from, to, ok := h.loadRange(w, r, 7*24*time.Hour)
+	if !ok {
 		return
 	}
 	daily := AggregateDaily(AggregateBlocks(snaps))
