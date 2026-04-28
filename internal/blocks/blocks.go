@@ -7,7 +7,8 @@ import (
 	"github.com/rengotaku/claude-usage-tracker/internal/jsonl"
 )
 
-const blockDuration = 5 * time.Hour
+// BlockDuration is the length of a single Claude session billing block.
+const BlockDuration = 5 * time.Hour
 
 // TokenBreakdown holds per-type token counts for a block.
 type TokenBreakdown struct {
@@ -53,7 +54,7 @@ func Build(entries []jsonl.UsageEntry) []Block {
 			start := e.Timestamp.UTC().Truncate(time.Second)
 			b := Block{
 				StartTime:      start,
-				EndTime:        start.Add(blockDuration),
+				EndTime:        start.Add(BlockDuration),
 				ModelBreakdown: make(map[string]TokenBreakdown),
 			}
 			blocks = append(blocks, b)

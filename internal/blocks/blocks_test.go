@@ -54,8 +54,8 @@ func TestBuild_SingleEntry(t *testing.T) {
 	if !b.StartTime.Equal(want) {
 		t.Errorf("StartTime: want %v, got %v", want, b.StartTime)
 	}
-	if !b.EndTime.Equal(want.Add(5 * time.Hour)) {
-		t.Errorf("EndTime: want %v, got %v", want.Add(5*time.Hour), b.EndTime)
+	if !b.EndTime.Equal(want.Add(blocks.BlockDuration)) {
+		t.Errorf("EndTime: want %v, got %v", want.Add(blocks.BlockDuration), b.EndTime)
 	}
 	if b.TotalTokens != 38 {
 		t.Errorf("TotalTokens: want 38, got %d", b.TotalTokens)

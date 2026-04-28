@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rengotaku/claude-usage-tracker/internal/blocks"
 	"github.com/rengotaku/claude-usage-tracker/internal/repository"
 	"github.com/rengotaku/claude-usage-tracker/internal/server"
 )
@@ -44,7 +45,7 @@ func decode[T any](t *testing.T, rec *httptest.ResponseRecorder) T {
 func TestSnapshotsEndpoint(t *testing.T) {
 	r := newTestRepo(t)
 	base := time.Date(2026, 4, 14, 10, 0, 0, 0, time.UTC)
-	end := base.Add(5 * time.Hour)
+	end := base.Add(blocks.BlockDuration)
 	seedSnapshots(t, r,
 		repository.Snapshot{TakenAt: base, BlockStartedAt: base, BlockEndedAt: &end, TokensUsed: 1000, UsageRatio: 0.02, WeeklyTokens: 1000},
 		repository.Snapshot{TakenAt: base.Add(time.Hour), BlockStartedAt: base, BlockEndedAt: &end, TokensUsed: 5000, UsageRatio: 0.10, WeeklyTokens: 5000},
@@ -88,9 +89,9 @@ func TestBlocksEndpointAggregation(t *testing.T) {
 	r := newTestRepo(t)
 	// Two snapshots in block A (tokens should be MAX), one snapshot in block B.
 	blockAStart := time.Date(2026, 4, 14, 10, 0, 0, 0, time.UTC)
-	blockAEnd := blockAStart.Add(5 * time.Hour)
+	blockAEnd := blockAStart.Add(blocks.BlockDuration)
 	blockBStart := blockAStart.Add(6 * time.Hour)
-	blockBEnd := blockBStart.Add(5 * time.Hour)
+	blockBEnd := blockBStart.Add(blocks.BlockDuration)
 	seedSnapshots(t, r,
 		repository.Snapshot{TakenAt: blockAStart, BlockStartedAt: blockAStart, BlockEndedAt: &blockAEnd, TokensUsed: 2000, UsageRatio: 0.04, WeeklyTokens: 2000},
 		repository.Snapshot{TakenAt: blockAStart.Add(time.Hour), BlockStartedAt: blockAStart, BlockEndedAt: &blockAEnd, TokensUsed: 8000, UsageRatio: 0.16, WeeklyTokens: 8000},
@@ -143,12 +144,12 @@ func TestDailyEndpoint(t *testing.T) {
 	r := newTestRepo(t)
 	// Day 1 (UTC 10:00 = JST 19:00 same day 2026-04-14): two blocks
 	d1a := time.Date(2026, 4, 14, 1, 0, 0, 0, time.UTC) // JST 10:00
-	d1aEnd := d1a.Add(5 * time.Hour)
+	d1aEnd := d1a.Add(blocks.BlockDuration)
 	d1b := time.Date(2026, 4, 14, 8, 0, 0, 0, time.UTC) // JST 17:00
-	d1bEnd := d1b.Add(5 * time.Hour)
+	d1bEnd := d1b.Add(blocks.BlockDuration)
 	// Day 2 (JST 2026-04-15)
 	d2 := time.Date(2026, 4, 15, 1, 0, 0, 0, time.UTC) // JST 10:00
-	d2End := d2.Add(5 * time.Hour)
+	d2End := d2.Add(blocks.BlockDuration)
 
 	seedSnapshots(t, r,
 		repository.Snapshot{TakenAt: d1a, BlockStartedAt: d1a, BlockEndedAt: &d1aEnd, TokensUsed: 5000, UsageRatio: 0.1},
@@ -189,10 +190,10 @@ func TestSummaryEndpoint(t *testing.T) {
 	now := time.Now().UTC()
 	// current week: one block 10000 tokens
 	cur := now.Add(-24 * time.Hour)
-	curEnd := cur.Add(5 * time.Hour)
+	curEnd := cur.Add(blocks.BlockDuration)
 	// previous week: one block 5000 tokens
 	prev := now.Add(-8 * 24 * time.Hour)
-	prevEnd := prev.Add(5 * time.Hour)
+	prevEnd := prev.Add(blocks.BlockDuration)
 
 	seedSnapshots(t, r,
 		repository.Snapshot{TakenAt: cur, BlockStartedAt: cur, BlockEndedAt: &curEnd, TokensUsed: 10000, UsageRatio: 0.2, WeeklyTokens: 10000, WeeklySonnetTokens: 4000},
@@ -235,7 +236,7 @@ func TestSummaryEndpoint(t *testing.T) {
 func TestBlocksFiltersPlaceholderSnapshots(t *testing.T) {
 	r := newTestRepo(t)
 	realStart := time.Date(2026, 4, 14, 10, 0, 0, 0, time.UTC)
-	realEnd := realStart.Add(5 * time.Hour)
+	realEnd := realStart.Add(blocks.BlockDuration)
 	// Placeholder (no active block): BlockEndedAt = nil, tokens = 0.
 	placeholder := time.Date(2026, 4, 14, 16, 30, 0, 0, time.UTC)
 	seedSnapshots(t, r,
