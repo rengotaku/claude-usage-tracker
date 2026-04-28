@@ -23,13 +23,8 @@ func ComputeMonthly(entries []jsonl.UsageEntry, now time.Time) *MonthlyData {
 	}
 
 	firstOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	prevStart := firstOfMonth.AddDate(0, -1, 0)
 	prevEnd := firstOfMonth
-	var prevStart time.Time
-	if firstOfMonth.Month() == time.January {
-		prevStart = time.Date(firstOfMonth.Year()-1, time.December, 1, 0, 0, 0, 0, time.UTC)
-	} else {
-		prevStart = time.Date(firstOfMonth.Year(), firstOfMonth.Month()-1, 1, 0, 0, 0, 0, time.UTC)
-	}
 
 	label := fmt.Sprintf("%d-%02d", prevStart.Year(), prevStart.Month())
 	byModel := map[string]int{}
