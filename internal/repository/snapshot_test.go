@@ -205,6 +205,38 @@ func TestSaveAndLatest_ModelBreakdown(t *testing.T) {
 	}
 }
 
+func TestMigrateIsIdempotent(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := dir + "/snapshots.db"
+	ctx := context.Background()
+
+	r1, err := repository.NewSnapshotRepository(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("first open: %v", err)
+	}
+	now := time.Now().UTC().Truncate(time.Second)
+	if err := r1.Save(ctx, repository.Snapshot{
+		TakenAt: now, BlockStartedAt: now, TokensUsed: 7, UsageRatio: 0.07,
+	}); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	r1.Close()
+
+	// Reopening must re-run migration without error and preserve data.
+	r2, err := repository.NewSnapshotRepository(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer r2.Close()
+	got, err := r2.Latest(ctx)
+	if err != nil {
+		t.Fatalf("latest: %v", err)
+	}
+	if got == nil || got.TokensUsed != 7 {
+		t.Fatalf("expected snapshot tokens=7, got %+v", got)
+	}
+}
+
 func TestNullBlockEndedAt(t *testing.T) {
 	r := newTestRepo(t)
 	ctx := context.Background()
