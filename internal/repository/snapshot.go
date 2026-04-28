@@ -18,6 +18,18 @@ import (
 
 const timeLayout = time.RFC3339
 
+// snapshotColumns is the canonical column list for SELECT queries against the
+// snapshots table. The order must stay in sync with scan().
+const snapshotColumns = `taken_at, block_started_at, block_ended_at, tokens_used,
+        input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens,
+        usage_ratio, weekly_tokens, weekly_sonnet_tokens, model_breakdown`
+
+// formatTimestamp normalizes a time to UTC, second precision, and the
+// repository's canonical RFC3339 layout.
+func formatTimestamp(t time.Time) string {
+	return t.UTC().Truncate(time.Second).Format(timeLayout)
+}
+
 // Snapshot represents a point-in-time record of token usage within a block.
 type Snapshot struct {
 	TakenAt              time.Time
@@ -102,7 +114,7 @@ func (r *SnapshotRepository) migrate(ctx context.Context) error {
 func (r *SnapshotRepository) Save(ctx context.Context, s Snapshot) error {
 	var endedAt *string
 	if s.BlockEndedAt != nil {
-		v := s.BlockEndedAt.UTC().Truncate(time.Second).Format(timeLayout)
+		v := formatTimestamp(*s.BlockEndedAt)
 		endedAt = &v
 	}
 	mbJSON, err := json.Marshal(s.WeeklyModelBreakdown)
@@ -115,8 +127,8 @@ func (r *SnapshotRepository) Save(ctx context.Context, s Snapshot) error {
 			 cache_creation_tokens, cache_read_tokens, usage_ratio, weekly_tokens, weekly_sonnet_tokens,
 			 model_breakdown)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		s.TakenAt.UTC().Truncate(time.Second).Format(timeLayout),
-		s.BlockStartedAt.UTC().Truncate(time.Second).Format(timeLayout),
+		formatTimestamp(s.TakenAt),
+		formatTimestamp(s.BlockStartedAt),
 		endedAt,
 		s.TokensUsed,
 		s.Tokens.Input,
@@ -137,11 +149,8 @@ func (r *SnapshotRepository) Save(ctx context.Context, s Snapshot) error {
 // Latest returns the most recently taken Snapshot, or nil if none exists.
 func (r *SnapshotRepository) Latest(ctx context.Context) (*Snapshot, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT taken_at, block_started_at, block_ended_at, tokens_used,
-		        input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens,
-		        usage_ratio, weekly_tokens, weekly_sonnet_tokens, model_breakdown
-		 FROM snapshots ORDER BY taken_at DESC LIMIT 1`)
-	s, err := scanRow(row)
+		`SELECT `+snapshotColumns+` FROM snapshots ORDER BY taken_at DESC LIMIT 1`)
+	s, err := scan(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -151,9 +160,7 @@ func (r *SnapshotRepository) Latest(ctx context.Context) (*Snapshot, error) {
 // ListBetween returns Snapshots with taken_at in [from, to], ordered ascending.
 func (r *SnapshotRepository) ListBetween(ctx context.Context, from, to time.Time) ([]Snapshot, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT taken_at, block_started_at, block_ended_at, tokens_used,
-		        input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens,
-		        usage_ratio, weekly_tokens, weekly_sonnet_tokens, model_breakdown
+		`SELECT `+snapshotColumns+`
 		 FROM snapshots
 		 WHERE taken_at >= ? AND taken_at <= ?
 		 ORDER BY taken_at`,
@@ -167,7 +174,7 @@ func (r *SnapshotRepository) ListBetween(ctx context.Context, from, to time.Time
 
 	var result []Snapshot
 	for rows.Next() {
-		s, err := scanRows(rows)
+		s, err := scan(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -183,14 +190,6 @@ func (r *SnapshotRepository) Close() error {
 
 type scanner interface {
 	Scan(dest ...any) error
-}
-
-func scanRow(s *sql.Row) (*Snapshot, error) {
-	return scan(s)
-}
-
-func scanRows(s *sql.Rows) (*Snapshot, error) {
-	return scan(s)
 }
 
 func scan(s scanner) (*Snapshot, error) {
