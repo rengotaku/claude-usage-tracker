@@ -108,7 +108,7 @@ func main() {
 		out.Session.Limit = result.SessionLimit
 		out.Session.Ratio = result.SessionRatio
 		if result.SessionEndsAt != nil {
-			out.Session.EndsAt = result.SessionEndsAt.In(jst).Format("2006-01-02T15:04:05+09:00")
+			out.Session.EndsAt = result.SessionEndsAt.In(jst).Format(time.RFC3339)
 		}
 		out.Weekly.TokensUsed = result.WeeklyTokens
 		out.Weekly.Limit = result.WeeklyLimit
@@ -116,7 +116,7 @@ func main() {
 		out.Weekly.SonnetTokens = result.WeeklySonnetTokens
 		out.Weekly.SonnetLimit = result.WeeklySonnetLimit
 		out.Weekly.SonnetRatio = result.WeeklySonnetRatio
-		out.Weekly.ResetsAt = result.WeeklyResetsAt.In(jst).Format("2006-01-02T15:04:05+09:00")
+		out.Weekly.ResetsAt = result.WeeklyResetsAt.In(jst).Format(time.RFC3339)
 		if len(result.WeeklyModelBreakdown) > 0 {
 			out.Weekly.ModelBreakdown = make(map[string]tokenBreakdownJSON, len(result.WeeklyModelBreakdown))
 			for model, bd := range result.WeeklyModelBreakdown {

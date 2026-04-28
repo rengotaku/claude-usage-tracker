@@ -48,7 +48,7 @@ func buildSession(u *service.UsageResult) string {
 		usageLine = fmt.Sprintf("%s (%s / %s)", fmtPct(u.SessionRatio), fmtTok(u.SessionTokens), fmtTok(u.SessionLimit))
 	}
 	if u.SessionEndsAt != nil {
-		usageLine += fmt.Sprintf(" — ブロック終了: %s", u.SessionEndsAt.In(jst).Format("2006-01-02T15:04:05+09:00"))
+		usageLine += fmt.Sprintf(" — ブロック終了: %s", u.SessionEndsAt.In(jst).Format(time.RFC3339))
 	}
 	fmt.Fprintf(&sb, "- 使用率: %s\n\n", usageLine)
 
@@ -72,7 +72,7 @@ func buildWeekly(u *service.UsageResult, modelBreakdown map[string]int) string {
 	if u.WeeklySonnetLimit > 0 {
 		sonnetLine = fmt.Sprintf("%s (%s / %s)", fmtPct(u.WeeklySonnetRatio), fmtTok(u.WeeklySonnetTokens), fmtTok(u.WeeklySonnetLimit))
 	}
-	resetsAt := u.WeeklyResetsAt.In(jst).Format("2006-01-02T15:04:05+09:00")
+	resetsAt := u.WeeklyResetsAt.In(jst).Format(time.RFC3339)
 
 	fmt.Fprintf(&sb, "- All: %s\n", allLine)
 	fmt.Fprintf(&sb, "- Sonnet: %s\n", sonnetLine)
