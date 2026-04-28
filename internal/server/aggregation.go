@@ -5,9 +5,8 @@ import (
 	"time"
 
 	"github.com/rengotaku/claude-usage-tracker/internal/repository"
+	"github.com/rengotaku/claude-usage-tracker/internal/tz"
 )
-
-var jst = time.FixedZone("JST", 9*60*60)
 
 // BlockAgg represents a 5-hour block aggregation derived from snapshots.
 type BlockAgg struct {
@@ -65,7 +64,7 @@ func AggregateDaily(blocks []BlockAgg) []DailyAgg {
 	}
 	byDate := make(map[string]*DailyAgg)
 	for _, b := range blocks {
-		d := b.Start.In(jst).Format("2006-01-02")
+		d := b.Start.In(tz.JST).Format("2006-01-02")
 		agg, ok := byDate[d]
 		if !ok {
 			agg = &DailyAgg{Date: d}

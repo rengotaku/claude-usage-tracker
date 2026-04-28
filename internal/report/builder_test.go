@@ -8,12 +8,11 @@ import (
 	"github.com/rengotaku/claude-usage-tracker/internal/blocks"
 	"github.com/rengotaku/claude-usage-tracker/internal/report"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
+	"github.com/rengotaku/claude-usage-tracker/internal/tz"
 )
 
-var jst = time.FixedZone("JST", 9*60*60)
-
 func fixedTime(year, month, day, hour int) time.Time {
-	return time.Date(year, time.Month(month), day, hour, 0, 0, 0, jst)
+	return time.Date(year, time.Month(month), day, hour, 0, 0, 0, tz.JST)
 }
 
 func TestBuild_ContainsHeader(t *testing.T) {

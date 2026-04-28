@@ -13,9 +13,8 @@ import (
 	"github.com/rengotaku/claude-usage-tracker/internal/jsonl"
 	"github.com/rengotaku/claude-usage-tracker/internal/report"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
+	"github.com/rengotaku/claude-usage-tracker/internal/tz"
 )
-
-var jst = time.FixedZone("JST", 9*60*60)
 
 const lastReportFile = ".local/share/claude-usage-tracker/last-usage-report.txt"
 
@@ -60,7 +59,7 @@ func main() {
 
 	recentBlocks := buildRecentBlocks(entries)
 
-	now := time.Now().In(jst)
+	now := time.Now().In(tz.JST)
 	monthly := report.ComputeMonthly(entries, now)
 
 	osType := "linux"
