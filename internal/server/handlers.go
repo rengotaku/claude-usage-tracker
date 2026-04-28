@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/rengotaku/claude-usage-tracker/internal/blocks"
 	"github.com/rengotaku/claude-usage-tracker/internal/repository"
 )
 
@@ -14,6 +15,26 @@ const jsonTimeFormat = "2006-01-02T15:04:05-07:00"
 
 type errorResponse struct {
 	Error string `json:"error"`
+}
+
+// formatJST renders t in JST using jsonTimeFormat.
+func formatJST(t time.Time) string {
+	return t.In(jst).Format(jsonTimeFormat)
+}
+
+// newPeriod builds a periodDTO from a [from, to] pair.
+func newPeriod(from, to time.Time) periodDTO {
+	return periodDTO{From: formatJST(from), To: formatJST(to)}
+}
+
+// toTokenBreakdown converts a blocks.TokenBreakdown to its DTO form.
+func toTokenBreakdown(b blocks.TokenBreakdown) tokenBreakdown {
+	return tokenBreakdown{
+		Input:         b.Input,
+		Output:        b.Output,
+		CacheCreation: b.CacheCreation,
+		CacheRead:     b.CacheRead,
+	}
 }
 
 // parseRange parses from/to query params. Supports RFC3339 or YYYY-MM-DD.
@@ -115,15 +136,10 @@ func (h *Handler) Snapshots(w http.ResponseWriter, r *http.Request) {
 	items := make([]snapshotItem, 0, len(snaps))
 	for _, s := range snaps {
 		item := snapshotItem{
-			TakenAt:        s.TakenAt.In(jst).Format(jsonTimeFormat),
-			BlockStartedAt: s.BlockStartedAt.In(jst).Format(jsonTimeFormat),
-			SessionTokens:  s.TokensUsed,
-			Tokens: tokenBreakdown{
-				Input:         s.Tokens.Input,
-				Output:        s.Tokens.Output,
-				CacheCreation: s.Tokens.CacheCreation,
-				CacheRead:     s.Tokens.CacheRead,
-			},
+			TakenAt:            formatJST(s.TakenAt),
+			BlockStartedAt:     formatJST(s.BlockStartedAt),
+			SessionTokens:      s.TokensUsed,
+			Tokens:             toTokenBreakdown(s.Tokens),
 			SessionRatio:       s.UsageRatio,
 			WeeklyTokens:       s.WeeklyTokens,
 			WeeklySonnetTokens: s.WeeklySonnetTokens,
@@ -131,21 +147,16 @@ func (h *Handler) Snapshots(w http.ResponseWriter, r *http.Request) {
 		if len(s.WeeklyModelBreakdown) > 0 {
 			item.WeeklyModelBreakdown = make(map[string]tokenBreakdown, len(s.WeeklyModelBreakdown))
 			for model, bd := range s.WeeklyModelBreakdown {
-				item.WeeklyModelBreakdown[model] = tokenBreakdown{
-					Input:         bd.Input,
-					Output:        bd.Output,
-					CacheCreation: bd.CacheCreation,
-					CacheRead:     bd.CacheRead,
-				}
+				item.WeeklyModelBreakdown[model] = toTokenBreakdown(bd)
 			}
 		}
 		if s.BlockEndedAt != nil {
-			item.BlockEndedAt = s.BlockEndedAt.In(jst).Format(jsonTimeFormat)
+			item.BlockEndedAt = formatJST(*s.BlockEndedAt)
 		}
 		items = append(items, item)
 	}
 	writeJSON(w, http.StatusOK, snapshotsResponse{
-		Period:    periodDTO{From: from.In(jst).Format(jsonTimeFormat), To: to.In(jst).Format(jsonTimeFormat)},
+		Period:    newPeriod(from, to),
 		Snapshots: items,
 	})
 }
@@ -186,12 +197,12 @@ func (h *Handler) Blocks(w http.ResponseWriter, r *http.Request) {
 	items := make([]blockItem, 0, len(aggs))
 	for _, b := range aggs {
 		item := blockItem{
-			Start:  b.Start.In(jst).Format(jsonTimeFormat),
+			Start:  formatJST(b.Start),
 			Tokens: b.Tokens,
 			Ratio:  b.Ratio,
 		}
 		if b.End != nil {
-			item.End = b.End.In(jst).Format(jsonTimeFormat)
+			item.End = formatJST(*b.End)
 		}
 		items = append(items, item)
 	}
@@ -201,7 +212,7 @@ func (h *Handler) Blocks(w http.ResponseWriter, r *http.Request) {
 		weekly.Ratio = float64(weeklyTotal) / float64(h.cfg.WeeklyLimit)
 	}
 	writeJSON(w, http.StatusOK, blocksResponse{
-		Period: periodDTO{From: from.In(jst).Format(jsonTimeFormat), To: to.In(jst).Format(jsonTimeFormat)},
+		Period: newPeriod(from, to),
 		Blocks: items,
 		Weekly: weekly,
 	})
@@ -237,7 +248,7 @@ func (h *Handler) Daily(w http.ResponseWriter, r *http.Request) {
 		items = append(items, dailyItem{Date: d.Date, Tokens: d.Tokens, Blocks: d.Blocks})
 	}
 	writeJSON(w, http.StatusOK, dailyResponse{
-		Period: periodDTO{From: from.In(jst).Format(jsonTimeFormat), To: to.In(jst).Format(jsonTimeFormat)},
+		Period: newPeriod(from, to),
 		Daily:  items,
 	})
 }
@@ -307,8 +318,8 @@ func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, summaryResponse{
 		Window:       win,
-		Current:      periodSum{From: curFrom.In(jst).Format(jsonTimeFormat), To: now.In(jst).Format(jsonTimeFormat), Tokens: curTokens},
-		Previous:     periodSum{From: prevFrom.In(jst).Format(jsonTimeFormat), To: curFrom.In(jst).Format(jsonTimeFormat), Tokens: prevTokens},
+		Current:      periodSum{From: formatJST(curFrom), To: formatJST(now), Tokens: curTokens},
+		Previous:     periodSum{From: formatJST(prevFrom), To: formatJST(curFrom), Tokens: prevTokens},
 		DeltaRatio:   delta,
 		WeeklySonnet: latestWeeklySonnet(curSnaps),
 	})
