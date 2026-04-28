@@ -11,6 +11,7 @@ import (
 
 	"github.com/rengotaku/claude-usage-tracker/internal/cache"
 	"github.com/rengotaku/claude-usage-tracker/internal/config"
+	"github.com/rengotaku/claude-usage-tracker/internal/numfmt"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
 )
 
@@ -142,7 +143,7 @@ func main() {
 	fmt.Printf("Current session   %s\n", sessionLine(result))
 	b := result.SessionBreakdown
 	fmt.Printf("  input %-8s  output %-8s  cache_creation %-8s  cache_read %s\n",
-		formatM(b.Input), formatM(b.Output), formatM(b.CacheCreation), formatM(b.CacheRead))
+		numfmt.Tokens(b.Input), numfmt.Tokens(b.Output), numfmt.Tokens(b.CacheCreation), numfmt.Tokens(b.CacheRead))
 	fmt.Printf("Weekly (All)      %s\n", weeklyLine(result.WeeklyTokens, result.WeeklyLimit, result.WeeklyRatio, resetsAt))
 	fmt.Printf("Weekly (Sonnet)   %s\n", weeklyLine(result.WeeklySonnetTokens, result.WeeklySonnetLimit, result.WeeklySonnetRatio, resetsAt))
 
@@ -155,7 +156,7 @@ func main() {
 		sort.Strings(models)
 		for _, m := range models {
 			bd := result.WeeklyModelBreakdown[m]
-			fmt.Printf("  %-38s %s\n", m, formatM(bd.Total()))
+			fmt.Printf("  %-38s %s\n", m, numfmt.Tokens(bd.Total()))
 		}
 	}
 }
@@ -167,16 +168,16 @@ func sessionLine(r *service.UsageResult) string {
 	}
 	if r.SessionLimit > 0 {
 		pct := r.SessionRatio * 100
-		return fmt.Sprintf("%.0f%% used (%s / %s%s)", pct, formatM(r.SessionTokens), formatM(r.SessionLimit), endsAt)
+		return fmt.Sprintf("%.0f%% used (%s / %s%s)", pct, numfmt.Tokens(r.SessionTokens), numfmt.Tokens(r.SessionLimit), endsAt)
 	}
-	return fmt.Sprintf("%s used%s", formatM(r.SessionTokens), endsAt)
+	return fmt.Sprintf("%s used%s", numfmt.Tokens(r.SessionTokens), endsAt)
 }
 
 func weeklyLine(tokens, limit int, ratio float64, resetsAt string) string {
 	if limit > 0 {
-		return fmt.Sprintf("%.0f%% used (%s / %s, resets %s (Asia/Tokyo))", ratio*100, formatM(tokens), formatM(limit), resetsAt)
+		return fmt.Sprintf("%.0f%% used (%s / %s, resets %s (Asia/Tokyo))", ratio*100, numfmt.Tokens(tokens), numfmt.Tokens(limit), resetsAt)
 	}
-	return fmt.Sprintf("%s used (resets %s (Asia/Tokyo))", formatM(tokens), resetsAt)
+	return fmt.Sprintf("%s used (resets %s (Asia/Tokyo))", numfmt.Tokens(tokens), resetsAt)
 }
 
 func logPlanDetection(logger *slog.Logger, cfg service.Config) {
@@ -187,12 +188,4 @@ func logPlanDetection(logger *slog.Logger, cfg service.Config) {
 		"tier", cfg.DetectedTier,
 		"session_limit", cfg.SessionLimit,
 	)
-}
-
-func formatM(n int) string {
-	m := float64(n) / 1_000_000
-	if m < 1 {
-		return fmt.Sprintf("%.0fk", float64(n)/1_000)
-	}
-	return fmt.Sprintf("%.0fM", m)
 }

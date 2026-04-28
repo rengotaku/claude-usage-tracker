@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rengotaku/claude-usage-tracker/internal/blocks"
+	"github.com/rengotaku/claude-usage-tracker/internal/numfmt"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
 )
 
@@ -43,9 +44,9 @@ func buildSession(u *service.UsageResult) string {
 	var sb strings.Builder
 	sb.WriteString("### セッション (現在の5h ブロック)\n\n")
 
-	usageLine := fmtTok(u.SessionTokens)
+	usageLine := numfmt.Tokens(u.SessionTokens)
 	if u.SessionLimit > 0 {
-		usageLine = fmt.Sprintf("%s (%s / %s)", fmtPct(u.SessionRatio), fmtTok(u.SessionTokens), fmtTok(u.SessionLimit))
+		usageLine = fmt.Sprintf("%s (%s / %s)", fmtPct(u.SessionRatio), numfmt.Tokens(u.SessionTokens), numfmt.Tokens(u.SessionLimit))
 	}
 	if u.SessionEndsAt != nil {
 		usageLine += fmt.Sprintf(" — ブロック終了: %s", u.SessionEndsAt.In(jst).Format("2006-01-02T15:04:05+09:00"))
@@ -56,7 +57,7 @@ func buildSession(u *service.UsageResult) string {
 	sb.WriteString("**トークン内訳**\n\n")
 	sb.WriteString("| input | output | cache_creation | cache_read |\n")
 	sb.WriteString("|-------|--------|----------------|------------|\n")
-	fmt.Fprintf(&sb, "| %s | %s | %s | %s |\n\n", fmtTok(b.Input), fmtTok(b.Output), fmtTok(b.CacheCreation), fmtTok(b.CacheRead))
+	fmt.Fprintf(&sb, "| %s | %s | %s | %s |\n\n", numfmt.Tokens(b.Input), numfmt.Tokens(b.Output), numfmt.Tokens(b.CacheCreation), numfmt.Tokens(b.CacheRead))
 	return sb.String()
 }
 
@@ -64,13 +65,13 @@ func buildWeekly(u *service.UsageResult, modelBreakdown map[string]int) string {
 	var sb strings.Builder
 	sb.WriteString("### 週次使用量\n\n")
 
-	allLine := fmtTok(u.WeeklyTokens)
+	allLine := numfmt.Tokens(u.WeeklyTokens)
 	if u.WeeklyLimit > 0 {
-		allLine = fmt.Sprintf("%s (%s / %s)", fmtPct(u.WeeklyRatio), fmtTok(u.WeeklyTokens), fmtTok(u.WeeklyLimit))
+		allLine = fmt.Sprintf("%s (%s / %s)", fmtPct(u.WeeklyRatio), numfmt.Tokens(u.WeeklyTokens), numfmt.Tokens(u.WeeklyLimit))
 	}
-	sonnetLine := fmtTok(u.WeeklySonnetTokens)
+	sonnetLine := numfmt.Tokens(u.WeeklySonnetTokens)
 	if u.WeeklySonnetLimit > 0 {
-		sonnetLine = fmt.Sprintf("%s (%s / %s)", fmtPct(u.WeeklySonnetRatio), fmtTok(u.WeeklySonnetTokens), fmtTok(u.WeeklySonnetLimit))
+		sonnetLine = fmt.Sprintf("%s (%s / %s)", fmtPct(u.WeeklySonnetRatio), numfmt.Tokens(u.WeeklySonnetTokens), numfmt.Tokens(u.WeeklySonnetLimit))
 	}
 	resetsAt := u.WeeklyResetsAt.In(jst).Format("2006-01-02T15:04:05+09:00")
 
@@ -90,7 +91,7 @@ func buildWeekly(u *service.UsageResult, modelBreakdown map[string]int) string {
 			return modelBreakdown[models[i]] > modelBreakdown[models[j]]
 		})
 		for _, m := range models {
-			fmt.Fprintf(&sb, "| %s | %s |\n", m, fmtTok(modelBreakdown[m]))
+			fmt.Fprintf(&sb, "| %s | %s |\n", m, numfmt.Tokens(modelBreakdown[m]))
 		}
 		sb.WriteString("\n")
 	}
@@ -113,7 +114,7 @@ func buildBlocks(bs []blocks.Block) string {
 		fmt.Fprintf(&sb, "| %s | %s | %s |\n",
 			b.StartTime.In(jst).Format("2006-01-02 15:04"),
 			end,
-			fmtTok(b.TotalTokens),
+			numfmt.Tokens(b.TotalTokens),
 		)
 	}
 	sb.WriteString("\n")
@@ -123,7 +124,7 @@ func buildBlocks(bs []blocks.Block) string {
 func buildMonthly(m *MonthlyData) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "### 前月総括 (%s)\n\n", m.Label)
-	fmt.Fprintf(&sb, "**月間トータル**: %s\n\n", fmtTok(m.TotalTokens))
+	fmt.Fprintf(&sb, "**月間トータル**: %s\n\n", numfmt.Tokens(m.TotalTokens))
 	sb.WriteString("**モデル別内訳**\n\n")
 	sb.WriteString("| モデル | トークン |\n")
 	sb.WriteString("|--------|----------|\n")
@@ -138,21 +139,11 @@ func buildMonthly(m *MonthlyData) string {
 			return m.ByModel[models[i]] > m.ByModel[models[j]]
 		})
 		for _, k := range models {
-			fmt.Fprintf(&sb, "| %s | %s |\n", k, fmtTok(m.ByModel[k]))
+			fmt.Fprintf(&sb, "| %s | %s |\n", k, numfmt.Tokens(m.ByModel[k]))
 		}
 	}
 	sb.WriteString("\n")
 	return sb.String()
-}
-
-func fmtTok(n int) string {
-	if n >= 1_000_000 {
-		return fmt.Sprintf("%.0fM", float64(n)/1_000_000)
-	}
-	if n >= 1_000 {
-		return fmt.Sprintf("%.0fk", float64(n)/1_000)
-	}
-	return fmt.Sprintf("%d", n)
 }
 
 func fmtPct(ratio float64) string {
