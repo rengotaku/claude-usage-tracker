@@ -83,19 +83,24 @@ func buildWeekly(u *service.UsageResult, modelBreakdown map[string]int) string {
 		sb.WriteString("**週次モデル別内訳**\n\n")
 		sb.WriteString("| モデル | トークン |\n")
 		sb.WriteString("|--------|----------|\n")
-		models := make([]string, 0, len(modelBreakdown))
-		for m := range modelBreakdown {
-			models = append(models, m)
-		}
-		sort.Slice(models, func(i, j int) bool {
-			return modelBreakdown[models[i]] > modelBreakdown[models[j]]
-		})
-		for _, m := range models {
-			fmt.Fprintf(&sb, "| %s | %s |\n", m, numfmt.Tokens(modelBreakdown[m]))
-		}
+		writeModelRows(&sb, modelBreakdown)
 		sb.WriteString("\n")
 	}
 	return sb.String()
+}
+
+// writeModelRows writes one Markdown table row per model, sorted by token count desc.
+func writeModelRows(sb *strings.Builder, byModel map[string]int) {
+	models := make([]string, 0, len(byModel))
+	for m := range byModel {
+		models = append(models, m)
+	}
+	sort.Slice(models, func(i, j int) bool {
+		return byModel[models[i]] > byModel[models[j]]
+	})
+	for _, m := range models {
+		fmt.Fprintf(sb, "| %s | %s |\n", m, numfmt.Tokens(byModel[m]))
+	}
 }
 
 func buildBlocks(bs []blocks.Block) string {
@@ -131,16 +136,7 @@ func buildMonthly(m *MonthlyData) string {
 	if len(m.ByModel) == 0 {
 		sb.WriteString("| (データなし) | — |\n")
 	} else {
-		models := make([]string, 0, len(m.ByModel))
-		for k := range m.ByModel {
-			models = append(models, k)
-		}
-		sort.Slice(models, func(i, j int) bool {
-			return m.ByModel[models[i]] > m.ByModel[models[j]]
-		})
-		for _, k := range models {
-			fmt.Fprintf(&sb, "| %s | %s |\n", k, numfmt.Tokens(m.ByModel[k]))
-		}
+		writeModelRows(&sb, m.ByModel)
 	}
 	sb.WriteString("\n")
 	return sb.String()
