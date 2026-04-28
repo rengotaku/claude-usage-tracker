@@ -119,7 +119,7 @@ func computeModelBreakdown(entries []jsonl.UsageEntry, weekStart time.Time) map[
 		if e.Timestamp.Before(weekStart) {
 			continue
 		}
-		byModel[report.ClassifyModel(e.Model)] += report.TotalTokens(e)
+		byModel[report.ClassifyModel(e.Model)] += e.TotalTokens()
 	}
 	return byModel
 }

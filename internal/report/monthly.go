@@ -40,7 +40,7 @@ func ComputeMonthly(entries []jsonl.UsageEntry, now time.Time) *MonthlyData {
 		if ts.Before(prevStart) || !ts.Before(prevEnd) {
 			continue
 		}
-		t := TotalTokens(e)
+		t := e.TotalTokens()
 		total += t
 		byModel[ClassifyModel(e.Model)] += t
 	}
@@ -65,9 +65,4 @@ func ClassifyModel(model string) string {
 	default:
 		return "Other"
 	}
-}
-
-// TotalTokens returns the sum of all token types in a UsageEntry.
-func TotalTokens(e jsonl.UsageEntry) int {
-	return e.InputTokens + e.OutputTokens + e.CacheCreationInputTokens + e.CacheReadInputTokens
 }
