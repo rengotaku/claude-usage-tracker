@@ -77,6 +77,37 @@ func TestParse_NonExistentDir(t *testing.T) {
 	}
 }
 
+func TestUsageEntry_TotalTokens(t *testing.T) {
+	tests := []struct {
+		name string
+		e    jsonl.UsageEntry
+		want int
+	}{
+		{
+			name: "all fields set",
+			e: jsonl.UsageEntry{
+				InputTokens:              10,
+				OutputTokens:             20,
+				CacheCreationInputTokens: 100,
+				CacheReadInputTokens:     50,
+			},
+			want: 180,
+		},
+		{
+			name: "zero value",
+			e:    jsonl.UsageEntry{},
+			want: 0,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.e.TotalTokens(); got != tc.want {
+				t.Errorf("TotalTokens: want %d, got %d", tc.want, got)
+			}
+		})
+	}
+}
+
 func TestParse_SkipsMalformedLines(t *testing.T) {
 	// sample.jsonl contains one malformed line; Parse should not return error
 	entries, err := jsonl.Parse("testdata")
