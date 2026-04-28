@@ -8,9 +8,8 @@ import (
 
 	"github.com/rengotaku/claude-usage-tracker/internal/blocks"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
+	"github.com/rengotaku/claude-usage-tracker/internal/timezone"
 )
-
-var jst = time.FixedZone("JST", 9*60*60)
 
 // Input holds all data needed to render a weekly usage report.
 type Input struct {
@@ -24,7 +23,7 @@ type Input struct {
 
 // Build renders the Markdown report body.
 func Build(in Input) string {
-	nowStr := in.Now.In(jst).Format("2006-01-02 15:04 JST")
+	nowStr := in.Now.In(timezone.JST).Format("2006-01-02 15:04 JST")
 	var sb strings.Builder
 
 	fmt.Fprintf(&sb, "## 週次レポート — %s\n\n", nowStr)
@@ -48,7 +47,7 @@ func buildSession(u *service.UsageResult) string {
 		usageLine = fmt.Sprintf("%s (%s / %s)", fmtPct(u.SessionRatio), fmtTok(u.SessionTokens), fmtTok(u.SessionLimit))
 	}
 	if u.SessionEndsAt != nil {
-		usageLine += fmt.Sprintf(" — ブロック終了: %s", u.SessionEndsAt.In(jst).Format("2006-01-02T15:04:05+09:00"))
+		usageLine += fmt.Sprintf(" — ブロック終了: %s", u.SessionEndsAt.In(timezone.JST).Format("2006-01-02T15:04:05+09:00"))
 	}
 	fmt.Fprintf(&sb, "- 使用率: %s\n\n", usageLine)
 
@@ -72,7 +71,7 @@ func buildWeekly(u *service.UsageResult, modelBreakdown map[string]int) string {
 	if u.WeeklySonnetLimit > 0 {
 		sonnetLine = fmt.Sprintf("%s (%s / %s)", fmtPct(u.WeeklySonnetRatio), fmtTok(u.WeeklySonnetTokens), fmtTok(u.WeeklySonnetLimit))
 	}
-	resetsAt := u.WeeklyResetsAt.In(jst).Format("2006-01-02T15:04:05+09:00")
+	resetsAt := u.WeeklyResetsAt.In(timezone.JST).Format("2006-01-02T15:04:05+09:00")
 
 	fmt.Fprintf(&sb, "- All: %s\n", allLine)
 	fmt.Fprintf(&sb, "- Sonnet: %s\n", sonnetLine)
@@ -106,12 +105,12 @@ func buildBlocks(bs []blocks.Block) string {
 	sb.WriteString("| 開始 (JST) | 終了 (JST) | トークン |\n")
 	sb.WriteString("|------------|------------|----------|\n")
 	for _, b := range bs {
-		end := b.EndTime.In(jst).Format("2006-01-02 15:04")
+		end := b.EndTime.In(timezone.JST).Format("2006-01-02 15:04")
 		if b.IsActive {
 			end = "進行中"
 		}
 		fmt.Fprintf(&sb, "| %s | %s | %s |\n",
-			b.StartTime.In(jst).Format("2006-01-02 15:04"),
+			b.StartTime.In(timezone.JST).Format("2006-01-02 15:04"),
 			end,
 			fmtTok(b.TotalTokens),
 		)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/rengotaku/claude-usage-tracker/internal/blocks"
 	"github.com/rengotaku/claude-usage-tracker/internal/repository"
+	"github.com/rengotaku/claude-usage-tracker/internal/timezone"
 )
 
 // timeFormat for JSON output (JST).
@@ -19,7 +20,7 @@ type errorResponse struct {
 
 // formatJST renders t in JST using jsonTimeFormat.
 func formatJST(t time.Time) string {
-	return t.In(jst).Format(jsonTimeFormat)
+	return t.In(timezone.JST).Format(jsonTimeFormat)
 }
 
 // newPeriod builds a periodDTO from a [from, to] pair.
@@ -70,7 +71,7 @@ func parseFlexibleTime(v string, endOfDay bool) (time.Time, error) {
 	if t, err := time.Parse(time.RFC3339, v); err == nil {
 		return t.UTC(), nil
 	}
-	if t, err := time.ParseInLocation("2006-01-02", v, jst); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02", v, timezone.JST); err == nil {
 		if endOfDay {
 			t = t.Add(24*time.Hour - time.Second)
 		}

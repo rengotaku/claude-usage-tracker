@@ -9,9 +9,8 @@ import (
 	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/jsonl"
 	"github.com/rengotaku/claude-usage-tracker/internal/plan"
+	"github.com/rengotaku/claude-usage-tracker/internal/timezone"
 )
-
-var jst = time.FixedZone("JST", 9*60*60)
 
 var weekdayNames = map[string]time.Weekday{
 	"sunday": time.Sunday, "monday": time.Monday, "tuesday": time.Tuesday,
@@ -152,9 +151,9 @@ func Compute(cfg Config) (*UsageResult, error) {
 }
 
 func lastWeeklyReset(day time.Weekday, hour int) time.Time {
-	now := time.Now().In(jst)
+	now := time.Now().In(timezone.JST)
 	daysSince := (int(now.Weekday()) - int(day) + 7) % 7
-	reset := time.Date(now.Year(), now.Month(), now.Day()-daysSince, hour, 0, 0, 0, jst)
+	reset := time.Date(now.Year(), now.Month(), now.Day()-daysSince, hour, 0, 0, 0, timezone.JST)
 	if now.Before(reset) {
 		reset = reset.AddDate(0, 0, -7)
 	}
