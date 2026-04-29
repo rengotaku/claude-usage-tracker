@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/repository"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
 )
@@ -13,9 +14,9 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 
-	appCfg, cfg, err := service.LoadAndValidateConfig()
+	appCfg, cfg, err := service.LoadAndValidateConfig(config.DefaultPath())
 	if err != nil {
-		logger.Error("config", "error", err)
+		logger.Error("load or validate config", "error", err)
 		os.Exit(1)
 	}
 	result, err := service.Compute(cfg)

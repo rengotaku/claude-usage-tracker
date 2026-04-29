@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/rengotaku/claude-usage-tracker/internal/blocks"
+	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/jsonl"
 	"github.com/rengotaku/claude-usage-tracker/internal/report"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
@@ -32,9 +33,9 @@ func main() {
 		}
 	}
 
-	appCfg, cfg, err := service.LoadAndValidateConfig()
+	appCfg, cfg, err := service.LoadAndValidateConfig(config.DefaultPath())
 	if err != nil {
-		logger.Error("config", "error", err)
+		logger.Error("load or validate config", "error", err)
 		os.Exit(1)
 	}
 

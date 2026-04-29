@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/repository"
 	"github.com/rengotaku/claude-usage-tracker/internal/server"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
@@ -15,9 +16,9 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 
-	appCfg, _, err := service.LoadAndValidateConfig()
+	appCfg, svcCfg, err := service.LoadAndValidateConfig(config.DefaultPath())
 	if err != nil {
-		logger.Error("config", "error", err)
+		logger.Error("load or validate config", "error", err)
 		os.Exit(1)
 	}
 
@@ -29,9 +30,9 @@ func main() {
 	defer repo.Close()
 
 	cfg := server.Config{
-		SessionLimit:      appCfg.PlanLimit,
-		WeeklyLimit:       appCfg.WeeklyLimit,
-		WeeklySonnetLimit: appCfg.WeeklySonnetLimit,
+		SessionLimit:      svcCfg.SessionLimit,
+		WeeklyLimit:       svcCfg.WeeklyLimit,
+		WeeklySonnetLimit: svcCfg.WeeklySonnetLimit,
 	}
 	h := server.NewHandler(repo, cfg)
 
