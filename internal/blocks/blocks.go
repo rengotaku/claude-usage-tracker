@@ -22,6 +22,24 @@ func (t TokenBreakdown) Total() int {
 	return t.Input + t.Output + t.CacheCreation + t.CacheRead
 }
 
+// TokenBreakdownJSON is the JSON-serializable form of TokenBreakdown.
+type TokenBreakdownJSON struct {
+	Input         int `json:"input"`
+	Output        int `json:"output"`
+	CacheCreation int `json:"cache_creation"`
+	CacheRead     int `json:"cache_read"`
+}
+
+// ToJSON converts t to its JSON-serializable form.
+func (t TokenBreakdown) ToJSON() TokenBreakdownJSON {
+	return TokenBreakdownJSON{
+		Input:         t.Input,
+		Output:        t.Output,
+		CacheCreation: t.CacheCreation,
+		CacheRead:     t.CacheRead,
+	}
+}
+
 // Block represents a 5-hour billing period.
 type Block struct {
 	StartTime   time.Time

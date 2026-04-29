@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/rengotaku/claude-usage-tracker/internal/blocks"
 	"github.com/rengotaku/claude-usage-tracker/internal/cache"
 	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
@@ -15,20 +16,13 @@ import (
 
 var jst = time.FixedZone("JST", 9*60*60)
 
-type tokenBreakdownJSON struct {
-	Input         int `json:"input"`
-	Output        int `json:"output"`
-	CacheCreation int `json:"cache_creation"`
-	CacheRead     int `json:"cache_read"`
-}
-
 type jsonOutput struct {
 	Session struct {
-		TokensUsed int                `json:"tokens_used"`
-		Breakdown  tokenBreakdownJSON `json:"breakdown"`
-		Limit      int                `json:"limit,omitempty"`
-		Ratio      float64            `json:"ratio,omitempty"`
-		EndsAt     string             `json:"ends_at,omitempty"`
+		TokensUsed int                       `json:"tokens_used"`
+		Breakdown  blocks.TokenBreakdownJSON `json:"breakdown"`
+		Limit      int                       `json:"limit,omitempty"`
+		Ratio      float64                   `json:"ratio,omitempty"`
+		EndsAt     string                    `json:"ends_at,omitempty"`
 	} `json:"session"`
 	Weekly struct {
 		TokensUsed   int     `json:"tokens_used"`
@@ -94,12 +88,7 @@ func main() {
 	if jsonFlag {
 		out := jsonOutput{}
 		out.Session.TokensUsed = result.SessionTokens
-		out.Session.Breakdown = tokenBreakdownJSON{
-			Input:         result.SessionBreakdown.Input,
-			Output:        result.SessionBreakdown.Output,
-			CacheCreation: result.SessionBreakdown.CacheCreation,
-			CacheRead:     result.SessionBreakdown.CacheRead,
-		}
+		out.Session.Breakdown = result.SessionBreakdown.ToJSON()
 		out.Session.Limit = result.SessionLimit
 		out.Session.Ratio = result.SessionRatio
 		if result.SessionEndsAt != nil {
