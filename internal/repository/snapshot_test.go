@@ -24,7 +24,7 @@ func TestSaveAndLatest(t *testing.T) {
 	ctx := context.Background()
 
 	now := time.Now().UTC().Truncate(time.Second)
-	end := now.Add(5 * time.Hour)
+	end := now.Add(blocks.BlockDuration)
 	s := repository.Snapshot{
 		TakenAt:        now,
 		BlockStartedAt: now,
