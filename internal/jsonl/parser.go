@@ -21,6 +21,10 @@ type UsageEntry struct {
 	CacheReadInputTokens     int
 }
 
+func (e UsageEntry) TotalTokens() int {
+	return e.InputTokens + e.OutputTokens + e.CacheCreationInputTokens + e.CacheReadInputTokens
+}
+
 type rawEntry struct {
 	Type      string    `json:"type"`
 	UUID      string    `json:"uuid"`
