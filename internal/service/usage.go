@@ -150,12 +150,7 @@ func Compute(cfg Config) (*UsageResult, error) {
 			result.WeeklySonnetTokens += t
 		}
 		if e.Model != "" {
-			mb := result.WeeklyModelBreakdown[e.Model]
-			mb.Input += e.InputTokens
-			mb.Output += e.OutputTokens
-			mb.CacheCreation += e.CacheCreationInputTokens
-			mb.CacheRead += e.CacheReadInputTokens
-			result.WeeklyModelBreakdown[e.Model] = mb
+			result.WeeklyModelBreakdown[e.Model] = result.WeeklyModelBreakdown[e.Model].Add(e)
 		}
 	}
 	if cfg.WeeklyLimit > 0 {
