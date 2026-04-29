@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/rengotaku/claude-usage-tracker/internal/cache"
-	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
 )
 
@@ -60,15 +59,9 @@ func main() {
 		}
 	}
 
-	appCfg, err := config.Load(config.DefaultPath())
+	appCfg, cfg, err := service.LoadAndValidateConfig()
 	if err != nil {
-		logger.Error("load config", "error", err)
-		os.Exit(1)
-	}
-
-	cfg := service.ConfigFrom(appCfg)
-	if err := service.ValidateConfig(cfg); err != nil {
-		logger.Error("invalid config", "error", err)
+		logger.Error("config", "error", err)
 		os.Exit(1)
 	}
 

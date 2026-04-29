@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/repository"
 	"github.com/rengotaku/claude-usage-tracker/internal/server"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
@@ -16,9 +15,9 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 
-	appCfg, err := config.Load(config.DefaultPath())
+	appCfg, _, err := service.LoadAndValidateConfig()
 	if err != nil {
-		logger.Error("load config", "error", err)
+		logger.Error("config", "error", err)
 		os.Exit(1)
 	}
 
@@ -29,10 +28,6 @@ func main() {
 	}
 	defer repo.Close()
 
-	if err := service.ValidateConfig(service.ConfigFrom(appCfg)); err != nil {
-		logger.Error("invalid config", "error", err)
-		os.Exit(1)
-	}
 	cfg := server.Config{
 		SessionLimit:      appCfg.PlanLimit,
 		WeeklyLimit:       appCfg.WeeklyLimit,
