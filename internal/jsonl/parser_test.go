@@ -77,6 +77,18 @@ func TestParse_NonExistentDir(t *testing.T) {
 	}
 }
 
+func TestUsageEntry_TotalTokens(t *testing.T) {
+	e := jsonl.UsageEntry{
+		InputTokens:              10,
+		OutputTokens:             20,
+		CacheCreationInputTokens: 100,
+		CacheReadInputTokens:     50,
+	}
+	if got := e.TotalTokens(); got != 180 {
+		t.Errorf("TotalTokens() = %d, want 180", got)
+	}
+}
+
 func TestParse_SkipsMalformedLines(t *testing.T) {
 	// sample.jsonl contains one malformed line; Parse should not return error
 	entries, err := jsonl.Parse("testdata")
