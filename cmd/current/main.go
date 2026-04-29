@@ -71,15 +71,9 @@ func main() {
 		}
 	}
 
-	appCfg, err := config.Load(config.DefaultPath())
+	appCfg, cfg, err := service.LoadAndValidateConfig(config.DefaultPath())
 	if err != nil {
-		logger.Error("load config", "error", err)
-		os.Exit(1)
-	}
-
-	cfg := service.ConfigFrom(appCfg)
-	if err := service.ValidateConfig(cfg); err != nil {
-		logger.Error("invalid config", "error", err)
+		logger.Error("load or validate config", "error", err)
 		os.Exit(1)
 	}
 

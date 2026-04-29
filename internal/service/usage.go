@@ -72,6 +72,22 @@ func ValidateConfig(cfg Config) error {
 	return nil
 }
 
+// LoadAndValidateConfig loads the application config from path, converts it to
+// a service Config, and validates it. Returns both configs so callers that need
+// raw app config (e.g. for DB path, cache TTL) can use it.
+// Use config.DefaultPath() as path for normal operation.
+func LoadAndValidateConfig(path string) (config.Config, Config, error) {
+	appCfg, err := config.Load(path)
+	if err != nil {
+		return config.Config{}, Config{}, fmt.Errorf("load config: %w", err)
+	}
+	cfg := ConfigFrom(appCfg)
+	if err := ValidateConfig(cfg); err != nil {
+		return config.Config{}, Config{}, fmt.Errorf("invalid config: %w", err)
+	}
+	return appCfg, cfg, nil
+}
+
 // UsageResult holds session and weekly usage metrics.
 type UsageResult struct {
 	SessionTokens   int

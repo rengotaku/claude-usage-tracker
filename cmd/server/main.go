@@ -16,9 +16,9 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 
-	appCfg, err := config.Load(config.DefaultPath())
+	appCfg, svcCfg, err := service.LoadAndValidateConfig(config.DefaultPath())
 	if err != nil {
-		logger.Error("load config", "error", err)
+		logger.Error("load or validate config", "error", err)
 		os.Exit(1)
 	}
 
@@ -29,14 +29,10 @@ func main() {
 	}
 	defer repo.Close()
 
-	if err := service.ValidateConfig(service.ConfigFrom(appCfg)); err != nil {
-		logger.Error("invalid config", "error", err)
-		os.Exit(1)
-	}
 	cfg := server.Config{
-		SessionLimit:      appCfg.PlanLimit,
-		WeeklyLimit:       appCfg.WeeklyLimit,
-		WeeklySonnetLimit: appCfg.WeeklySonnetLimit,
+		SessionLimit:      svcCfg.SessionLimit,
+		WeeklyLimit:       svcCfg.WeeklyLimit,
+		WeeklySonnetLimit: svcCfg.WeeklySonnetLimit,
 	}
 	h := server.NewHandler(repo, cfg)
 
