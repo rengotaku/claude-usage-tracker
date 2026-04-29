@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/rengotaku/claude-usage-tracker/internal/blocks"
 	"github.com/rengotaku/claude-usage-tracker/internal/cache"
 	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
@@ -21,6 +22,15 @@ type tokenBreakdownJSON struct {
 	Output        int `json:"output"`
 	CacheCreation int `json:"cache_creation"`
 	CacheRead     int `json:"cache_read"`
+}
+
+func newTokenBreakdownJSON(b blocks.TokenBreakdown) tokenBreakdownJSON {
+	return tokenBreakdownJSON{
+		Input:         b.Input,
+		Output:        b.Output,
+		CacheCreation: b.CacheCreation,
+		CacheRead:     b.CacheRead,
+	}
 }
 
 type jsonOutput struct {
@@ -99,12 +109,7 @@ func main() {
 	if jsonFlag {
 		out := jsonOutput{}
 		out.Session.TokensUsed = result.SessionTokens
-		out.Session.Breakdown = tokenBreakdownJSON{
-			Input:         result.SessionBreakdown.Input,
-			Output:        result.SessionBreakdown.Output,
-			CacheCreation: result.SessionBreakdown.CacheCreation,
-			CacheRead:     result.SessionBreakdown.CacheRead,
-		}
+		out.Session.Breakdown = newTokenBreakdownJSON(result.SessionBreakdown)
 		out.Session.Limit = result.SessionLimit
 		out.Session.Ratio = result.SessionRatio
 		if result.SessionEndsAt != nil {
@@ -120,12 +125,7 @@ func main() {
 		if len(result.WeeklyModelBreakdown) > 0 {
 			out.Weekly.ModelBreakdown = make(map[string]tokenBreakdownJSON, len(result.WeeklyModelBreakdown))
 			for model, bd := range result.WeeklyModelBreakdown {
-				out.Weekly.ModelBreakdown[model] = tokenBreakdownJSON{
-					Input:         bd.Input,
-					Output:        bd.Output,
-					CacheCreation: bd.CacheCreation,
-					CacheRead:     bd.CacheRead,
-				}
+				out.Weekly.ModelBreakdown[model] = newTokenBreakdownJSON(bd)
 			}
 		}
 
