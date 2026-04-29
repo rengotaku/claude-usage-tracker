@@ -78,14 +78,21 @@ func TestParse_NonExistentDir(t *testing.T) {
 }
 
 func TestUsageEntry_TotalTokens(t *testing.T) {
-	e := jsonl.UsageEntry{
-		InputTokens:              10,
-		OutputTokens:             20,
-		CacheCreationInputTokens: 100,
-		CacheReadInputTokens:     50,
+	tests := []struct {
+		name string
+		e    jsonl.UsageEntry
+		want int
+	}{
+		{"all fields", jsonl.UsageEntry{InputTokens: 10, OutputTokens: 20, CacheCreationInputTokens: 100, CacheReadInputTokens: 50}, 180},
+		{"zeros", jsonl.UsageEntry{}, 0},
+		{"only input", jsonl.UsageEntry{InputTokens: 5}, 5},
 	}
-	if got := e.TotalTokens(); got != 180 {
-		t.Errorf("TotalTokens() = %d, want 180", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.e.TotalTokens(); got != tt.want {
+				t.Errorf("TotalTokens() = %d, want %d", got, tt.want)
+			}
+		})
 	}
 }
 
