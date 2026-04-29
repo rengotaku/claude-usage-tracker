@@ -37,6 +37,11 @@ type rawEntry struct {
 	} `json:"message"`
 }
 
+// TotalTokens returns the sum of all token types in a UsageEntry.
+func TotalTokens(e UsageEntry) int {
+	return e.InputTokens + e.OutputTokens + e.CacheCreationInputTokens + e.CacheReadInputTokens
+}
+
 // Parse walks dir and returns all unique UsageEntry records found in .jsonl files.
 func Parse(dir string) ([]UsageEntry, error) {
 	seen := make(map[string]struct{})
