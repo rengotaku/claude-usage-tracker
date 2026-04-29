@@ -15,9 +15,9 @@ import (
 	"github.com/rengotaku/claude-usage-tracker/internal/logging"
 	"github.com/rengotaku/claude-usage-tracker/internal/numfmt"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
+	"github.com/rengotaku/claude-usage-tracker/internal/tz"
 )
 
-var jst = time.FixedZone("JST", 9*60*60)
 
 type tokenBreakdownJSON struct {
 	Input         int `json:"input"`
@@ -109,7 +109,7 @@ func main() {
 		out.Session.Limit = result.SessionLimit
 		out.Session.Ratio = result.SessionRatio
 		if result.SessionEndsAt != nil {
-			out.Session.EndsAt = result.SessionEndsAt.In(jst).Format(time.RFC3339)
+			out.Session.EndsAt = result.SessionEndsAt.In(tz.JST).Format(time.RFC3339)
 		}
 		out.Weekly.TokensUsed = result.WeeklyTokens
 		out.Weekly.Limit = result.WeeklyLimit
@@ -117,7 +117,7 @@ func main() {
 		out.Weekly.SonnetTokens = result.WeeklySonnetTokens
 		out.Weekly.SonnetLimit = result.WeeklySonnetLimit
 		out.Weekly.SonnetRatio = result.WeeklySonnetRatio
-		out.Weekly.ResetsAt = result.WeeklyResetsAt.In(jst).Format(time.RFC3339)
+		out.Weekly.ResetsAt = result.WeeklyResetsAt.In(tz.JST).Format(time.RFC3339)
 		if len(result.WeeklyModelBreakdown) > 0 {
 			out.Weekly.ModelBreakdown = make(map[string]tokenBreakdownJSON, len(result.WeeklyModelBreakdown))
 			for model, bd := range result.WeeklyModelBreakdown {
@@ -134,7 +134,7 @@ func main() {
 		return
 	}
 
-	resetsAt := result.WeeklyResetsAt.In(jst).Format("Jan 2, 3pm")
+	resetsAt := result.WeeklyResetsAt.In(tz.JST).Format("Jan 2, 3pm")
 	fmt.Printf("Current session   %s\n", sessionLine(result))
 	b := result.SessionBreakdown
 	fmt.Printf("  input %-8s  output %-8s  cache_creation %-8s  cache_read %s\n",
@@ -159,7 +159,7 @@ func main() {
 func sessionLine(r *service.UsageResult) string {
 	endsAt := ""
 	if r.SessionEndsAt != nil {
-		endsAt = ", resets " + r.SessionEndsAt.In(jst).Format("3pm (Asia/Tokyo)")
+		endsAt = ", resets " + r.SessionEndsAt.In(tz.JST).Format("3pm (Asia/Tokyo)")
 	}
 	if r.SessionLimit > 0 {
 		pct := r.SessionRatio * 100
