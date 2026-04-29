@@ -118,12 +118,14 @@ func Compute(cfg Config) (*UsageResult, error) {
 	bs := blocks.Build(entries)
 	active := blocks.ActiveBlock(bs)
 
+	weekStart := lastWeeklyReset(cfg.WeeklyResetDay, cfg.WeeklyResetHour)
+
 	result := &UsageResult{
 		SessionLimit:         cfg.SessionLimit,
 		WeeklyLimit:          cfg.WeeklyLimit,
 		WeeklySonnetLimit:    cfg.WeeklySonnetLimit,
-		WeeklyStartsAt:       lastWeeklyReset(cfg.WeeklyResetDay, cfg.WeeklyResetHour),
-		WeeklyResetsAt:       nextWeeklyReset(cfg.WeeklyResetDay, cfg.WeeklyResetHour),
+		WeeklyStartsAt:       weekStart,
+		WeeklyResetsAt:       weekStart.AddDate(0, 0, 7),
 		WeeklyModelBreakdown: make(map[string]blocks.TokenBreakdown),
 	}
 
@@ -138,7 +140,6 @@ func Compute(cfg Config) (*UsageResult, error) {
 		}
 	}
 
-	weekStart := lastWeeklyReset(cfg.WeeklyResetDay, cfg.WeeklyResetHour)
 	for _, e := range entries {
 		if e.Timestamp.Before(weekStart) {
 			continue
@@ -175,10 +176,6 @@ func lastWeeklyReset(day time.Weekday, hour int) time.Time {
 		reset = reset.AddDate(0, 0, -7)
 	}
 	return reset
-}
-
-func nextWeeklyReset(day time.Weekday, hour int) time.Time {
-	return lastWeeklyReset(day, hour).AddDate(0, 0, 7)
 }
 
 func isSonnet(model string) bool {
