@@ -213,13 +213,13 @@ func scan(s scanner) (*Snapshot, error) {
 		return nil, err
 	}
 
-	ta, err := time.Parse(timeLayout, takenAt)
+	ta, err := parseTime(timeLayout, takenAt, "taken_at")
 	if err != nil {
-		return nil, fmt.Errorf("parse taken_at: %w", err)
+		return nil, err
 	}
-	bs, err := time.Parse(timeLayout, blockStartedAt)
+	bs, err := parseTime(timeLayout, blockStartedAt, "block_started_at")
 	if err != nil {
-		return nil, fmt.Errorf("parse block_started_at: %w", err)
+		return nil, err
 	}
 
 	var modelBreakdown map[string]blocks.TokenBreakdown
@@ -245,12 +245,20 @@ func scan(s scanner) (*Snapshot, error) {
 		WeeklyModelBreakdown: modelBreakdown,
 	}
 	if blockEndedAt != nil {
-		be, err := time.Parse(timeLayout, *blockEndedAt)
+		be, err := parseTime(timeLayout, *blockEndedAt, "block_ended_at")
 		if err != nil {
-			return nil, fmt.Errorf("parse block_ended_at: %w", err)
+			return nil, err
 		}
 		t := be.UTC()
 		snap.BlockEndedAt = &t
 	}
 	return snap, nil
+}
+
+func parseTime(layout, value, field string) (time.Time, error) {
+	t, err := time.Parse(layout, value)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("parse %s: %w", field, err)
+	}
+	return t, nil
 }
