@@ -334,11 +334,5 @@ func sumBlockTokens(aggs []BlockAgg) int {
 }
 
 func latestWeeklySonnet(snaps []repository.Snapshot) int {
-	var max int
-	for _, s := range snaps {
-		if s.WeeklySonnetTokens > max {
-			max = s.WeeklySonnetTokens
-		}
-	}
-	return max
+	return maxSnapshotField(snaps, func(s repository.Snapshot) int { return s.WeeklySonnetTokens })
 }
