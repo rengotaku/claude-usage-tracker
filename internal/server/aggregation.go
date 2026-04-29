@@ -82,14 +82,14 @@ func AggregateDaily(blocks []BlockAgg) []DailyAgg {
 	return result
 }
 
-// SumWeeklyTokens returns the latest weekly_tokens value observed in snaps
-// (the tracker stores a running weekly counter; the max/last value represents
-// the current weekly total for the range).
-func SumWeeklyTokens(snaps []repository.Snapshot) int {
+// maxSnapshotField returns the maximum value of an int field selected by getter
+// across snaps. Used to read running weekly counters that increase monotonically
+// within a week, so the maximum represents the current weekly total.
+func maxSnapshotField(snaps []repository.Snapshot, getter func(repository.Snapshot) int) int {
 	var max int
 	for _, s := range snaps {
-		if s.WeeklyTokens > max {
-			max = s.WeeklyTokens
+		if v := getter(s); v > max {
+			max = v
 		}
 	}
 	return max

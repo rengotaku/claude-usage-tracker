@@ -206,7 +206,7 @@ func (h *Handler) Blocks(w http.ResponseWriter, r *http.Request) {
 		}
 		items = append(items, item)
 	}
-	weeklyTotal := SumWeeklyTokens(snaps)
+	weeklyTotal := maxSnapshotField(snaps, func(s repository.Snapshot) int { return s.WeeklyTokens })
 	weekly := weeklyDTO{TotalTokens: weeklyTotal, Limit: h.cfg.WeeklyLimit}
 	if h.cfg.WeeklyLimit > 0 {
 		weekly.Ratio = float64(weeklyTotal) / float64(h.cfg.WeeklyLimit)
@@ -321,7 +321,7 @@ func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 		Current:      periodSum{From: formatJST(curFrom), To: formatJST(now), Tokens: curTokens},
 		Previous:     periodSum{From: formatJST(prevFrom), To: formatJST(curFrom), Tokens: prevTokens},
 		DeltaRatio:   delta,
-		WeeklySonnet: latestWeeklySonnet(curSnaps),
+		WeeklySonnet: maxSnapshotField(curSnaps, func(s repository.Snapshot) int { return s.WeeklySonnetTokens }),
 	})
 }
 
@@ -331,14 +331,4 @@ func sumBlockTokens(aggs []BlockAgg) int {
 		sum += b.Tokens
 	}
 	return sum
-}
-
-func latestWeeklySonnet(snaps []repository.Snapshot) int {
-	var max int
-	for _, s := range snaps {
-		if s.WeeklySonnetTokens > max {
-			max = s.WeeklySonnetTokens
-		}
-	}
-	return max
 }
