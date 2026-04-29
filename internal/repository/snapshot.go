@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -91,23 +90,60 @@ func (r *SnapshotRepository) migrate(ctx context.Context) error {
 		return fmt.Errorf("create table: %w", err)
 	}
 
-	// Add columns to existing tables (idempotent).
-	for _, col := range []string{
-		"ALTER TABLE snapshots ADD COLUMN weekly_tokens         INTEGER NOT NULL DEFAULT 0",
-		"ALTER TABLE snapshots ADD COLUMN weekly_sonnet_tokens  INTEGER NOT NULL DEFAULT 0",
-		"ALTER TABLE snapshots ADD COLUMN input_tokens          INTEGER NOT NULL DEFAULT 0",
-		"ALTER TABLE snapshots ADD COLUMN output_tokens         INTEGER NOT NULL DEFAULT 0",
-		"ALTER TABLE snapshots ADD COLUMN cache_creation_tokens INTEGER NOT NULL DEFAULT 0",
-		"ALTER TABLE snapshots ADD COLUMN cache_read_tokens     INTEGER NOT NULL DEFAULT 0",
-		"ALTER TABLE snapshots ADD COLUMN model_breakdown       TEXT NOT NULL DEFAULT '{}'",
-	} {
-		if _, err := r.db.ExecContext(ctx, col); err != nil {
-			if !strings.Contains(err.Error(), "duplicate column name") {
-				return fmt.Errorf("alter table: %w", err)
-			}
+	existing, err := r.existingColumns(ctx, "snapshots")
+	if err != nil {
+		return fmt.Errorf("inspect schema: %w", err)
+	}
+
+	// Add columns to existing tables created by older versions.
+	addColumns := []struct{ name, ddl string }{
+		{"weekly_tokens", "INTEGER NOT NULL DEFAULT 0"},
+		{"weekly_sonnet_tokens", "INTEGER NOT NULL DEFAULT 0"},
+		{"input_tokens", "INTEGER NOT NULL DEFAULT 0"},
+		{"output_tokens", "INTEGER NOT NULL DEFAULT 0"},
+		{"cache_creation_tokens", "INTEGER NOT NULL DEFAULT 0"},
+		{"cache_read_tokens", "INTEGER NOT NULL DEFAULT 0"},
+		{"model_breakdown", "TEXT NOT NULL DEFAULT '{}'"},
+	}
+	for _, c := range addColumns {
+		if _, ok := existing[c.name]; ok {
+			continue
+		}
+		stmt := fmt.Sprintf("ALTER TABLE snapshots ADD COLUMN %s %s", c.name, c.ddl)
+		if _, err := r.db.ExecContext(ctx, stmt); err != nil {
+			return fmt.Errorf("alter table add column %s: %w", c.name, err)
 		}
 	}
 	return nil
+}
+
+// existingColumns returns the set of column names currently present on table.
+func (r *SnapshotRepository) existingColumns(ctx context.Context, table string) (map[string]struct{}, error) {
+	rows, err := r.db.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return nil, fmt.Errorf("pragma table_info: %w", err)
+	}
+	defer rows.Close()
+
+	cols := make(map[string]struct{})
+	for rows.Next() {
+		var (
+			cid     int
+			name    string
+			ctype   string
+			notNull int
+			dflt    sql.NullString
+			pk      int
+		)
+		if err := rows.Scan(&cid, &name, &ctype, &notNull, &dflt, &pk); err != nil {
+			return nil, fmt.Errorf("scan table_info: %w", err)
+		}
+		cols[name] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return cols, nil
 }
 
 // Save inserts or replaces a Snapshot (upsert by taken_at).
