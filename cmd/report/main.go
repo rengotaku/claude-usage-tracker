@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,6 +10,7 @@ import (
 	"github.com/rengotaku/claude-usage-tracker/internal/blocks"
 	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/jsonl"
+	"github.com/rengotaku/claude-usage-tracker/internal/logging"
 	"github.com/rengotaku/claude-usage-tracker/internal/report"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
 )
@@ -20,7 +20,7 @@ var jst = time.FixedZone("JST", 9*60*60)
 const lastReportFile = ".local/share/claude-usage-tracker/last-usage-report.txt"
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+	logger := logging.NewDefault()
 
 	dryRun := false
 	force := false
