@@ -12,12 +12,13 @@ import (
 )
 
 type entry struct {
-	CachedAt      time.Time      `json:"cached_at"`
-	SessionTokens int            `json:"session_tokens"`
-	SessionLimit  int            `json:"session_limit"`
-	SessionRatio  float64        `json:"session_ratio"`
-	SessionEndsAt *time.Time     `json:"session_ends_at,omitempty"`
-	ActiveBlock   *blocks.Block  `json:"active_block,omitempty"`
+	CachedAt         time.Time             `json:"cached_at"`
+	SessionTokens    int                   `json:"session_tokens"`
+	SessionBreakdown blocks.TokenBreakdown `json:"session_breakdown"`
+	SessionLimit     int                   `json:"session_limit"`
+	SessionRatio     float64               `json:"session_ratio"`
+	SessionEndsAt    *time.Time            `json:"session_ends_at,omitempty"`
+	ActiveBlock      *blocks.Block         `json:"active_block,omitempty"`
 
 	WeeklyTokens         int                              `json:"weekly_tokens"`
 	WeeklyLimit          int                              `json:"weekly_limit"`
@@ -51,6 +52,7 @@ func Load(path string, ttl time.Duration) (*service.UsageResult, error) {
 
 	return &service.UsageResult{
 		SessionTokens:        e.SessionTokens,
+		SessionBreakdown:     e.SessionBreakdown,
 		SessionLimit:         e.SessionLimit,
 		SessionRatio:         e.SessionRatio,
 		SessionEndsAt:        e.SessionEndsAt,
@@ -71,6 +73,7 @@ func Save(path string, result *service.UsageResult) error {
 	e := entry{
 		CachedAt:             time.Now(),
 		SessionTokens:        result.SessionTokens,
+		SessionBreakdown:     result.SessionBreakdown,
 		SessionLimit:         result.SessionLimit,
 		SessionRatio:         result.SessionRatio,
 		SessionEndsAt:        result.SessionEndsAt,
