@@ -5,9 +5,10 @@ import (
 	"time"
 
 	"github.com/rengotaku/claude-usage-tracker/internal/repository"
+	"github.com/rengotaku/claude-usage-tracker/internal/timezone"
 )
 
-var jst = time.FixedZone("JST", 9*60*60)
+var jst = timezone.JST
 
 // BlockAgg represents a 5-hour block aggregation derived from snapshots.
 type BlockAgg struct {

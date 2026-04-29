@@ -11,9 +11,10 @@ import (
 	"github.com/rengotaku/claude-usage-tracker/internal/cache"
 	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
+	"github.com/rengotaku/claude-usage-tracker/internal/timezone"
 )
 
-var jst = time.FixedZone("JST", 9*60*60)
+var jst = timezone.JST
 
 type tokenBreakdownJSON struct {
 	Input         int `json:"input"`

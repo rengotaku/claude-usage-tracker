@@ -9,9 +9,10 @@ import (
 	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/jsonl"
 	"github.com/rengotaku/claude-usage-tracker/internal/plan"
+	"github.com/rengotaku/claude-usage-tracker/internal/timezone"
 )
 
-var jst = time.FixedZone("JST", 9*60*60)
+var jst = timezone.JST
 
 var weekdayNames = map[string]time.Weekday{
 	"sunday": time.Sunday, "monday": time.Monday, "tuesday": time.Tuesday,
