@@ -23,6 +23,16 @@ func (t TokenBreakdown) Total() int {
 	return t.Input + t.Output + t.CacheCreation + t.CacheRead
 }
 
+// Add returns a new TokenBreakdown with the entry's tokens added.
+func (t TokenBreakdown) Add(e jsonl.UsageEntry) TokenBreakdown {
+	return TokenBreakdown{
+		Input:         t.Input + e.InputTokens,
+		Output:        t.Output + e.OutputTokens,
+		CacheCreation: t.CacheCreation + e.CacheCreationInputTokens,
+		CacheRead:     t.CacheRead + e.CacheReadInputTokens,
+	}
+}
+
 // Block represents a 5-hour billing period.
 type Block struct {
 	StartTime      time.Time
@@ -61,18 +71,10 @@ func Build(entries []jsonl.UsageEntry) []Block {
 			current = &blocks[len(blocks)-1]
 		}
 		current.TotalTokens += e.TotalTokens()
-		current.Tokens.Input += e.InputTokens
-		current.Tokens.Output += e.OutputTokens
-		current.Tokens.CacheCreation += e.CacheCreationInputTokens
-		current.Tokens.CacheRead += e.CacheReadInputTokens
+		current.Tokens = current.Tokens.Add(e)
 		current.EntryCount++
 		if e.Model != "" {
-			mb := current.ModelBreakdown[e.Model]
-			mb.Input += e.InputTokens
-			mb.Output += e.OutputTokens
-			mb.CacheCreation += e.CacheCreationInputTokens
-			mb.CacheRead += e.CacheReadInputTokens
-			current.ModelBreakdown[e.Model] = mb
+			current.ModelBreakdown[e.Model] = current.ModelBreakdown[e.Model].Add(e)
 		}
 	}
 
