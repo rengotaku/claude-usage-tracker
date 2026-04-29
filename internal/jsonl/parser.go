@@ -3,6 +3,8 @@ package jsonl
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
+	"io"
 	"io/fs"
 	"log"
 	"os"
@@ -104,7 +106,7 @@ func parseFile(path string, seen map[string]struct{}) ([]UsageEntry, error) {
 			}
 		}
 		if err != nil {
-			if err.Error() == "EOF" {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return nil, err
