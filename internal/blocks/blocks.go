@@ -59,7 +59,7 @@ func Build(entries []jsonl.UsageEntry) []Block {
 			blocks = append(blocks, b)
 			current = &blocks[len(blocks)-1]
 		}
-		current.TotalTokens += totalTokens(e)
+		current.TotalTokens += e.TotalTokens()
 		current.Tokens.Input += e.InputTokens
 		current.Tokens.Output += e.OutputTokens
 		current.Tokens.CacheCreation += e.CacheCreationInputTokens
@@ -93,9 +93,4 @@ func ActiveBlock(blocks []Block) *Block {
 		}
 	}
 	return nil
-}
-
-
-func totalTokens(e jsonl.UsageEntry) int {
-	return e.InputTokens + e.OutputTokens + e.CacheCreationInputTokens + e.CacheReadInputTokens
 }
