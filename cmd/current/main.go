@@ -12,6 +12,7 @@ import (
 	"github.com/rengotaku/claude-usage-tracker/internal/blocks"
 	"github.com/rengotaku/claude-usage-tracker/internal/cache"
 	"github.com/rengotaku/claude-usage-tracker/internal/config"
+	"github.com/rengotaku/claude-usage-tracker/internal/logging"
 	"github.com/rengotaku/claude-usage-tracker/internal/numfmt"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
 )
@@ -55,7 +56,7 @@ type jsonOutput struct {
 }
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+	logger := logging.NewDefault()
 
 	noCache := false
 	jsonFlag := false

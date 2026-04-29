@@ -2,19 +2,19 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/rengotaku/claude-usage-tracker/internal/config"
+	"github.com/rengotaku/claude-usage-tracker/internal/logging"
 	"github.com/rengotaku/claude-usage-tracker/internal/repository"
 	"github.com/rengotaku/claude-usage-tracker/internal/server"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+	logger := logging.NewDefault()
 
 	appCfg, svcCfg, err := service.LoadAndValidateConfig(config.DefaultPath())
 	if err != nil {
