@@ -9,49 +9,33 @@ import (
 	"sort"
 	"time"
 
-	"github.com/rengotaku/claude-usage-tracker/internal/blocks"
 	"github.com/rengotaku/claude-usage-tracker/internal/cache"
 	"github.com/rengotaku/claude-usage-tracker/internal/config"
 	"github.com/rengotaku/claude-usage-tracker/internal/logging"
 	"github.com/rengotaku/claude-usage-tracker/internal/numfmt"
 	"github.com/rengotaku/claude-usage-tracker/internal/service"
 	"github.com/rengotaku/claude-usage-tracker/internal/tz"
+	"github.com/rengotaku/claude-usage-tracker/internal/usagejson"
 )
 
 
-type tokenBreakdownJSON struct {
-	Input         int `json:"input"`
-	Output        int `json:"output"`
-	CacheCreation int `json:"cache_creation"`
-	CacheRead     int `json:"cache_read"`
-}
-
-func newTokenBreakdownJSON(b blocks.TokenBreakdown) tokenBreakdownJSON {
-	return tokenBreakdownJSON{
-		Input:         b.Input,
-		Output:        b.Output,
-		CacheCreation: b.CacheCreation,
-		CacheRead:     b.CacheRead,
-	}
-}
-
 type jsonOutput struct {
 	Session struct {
-		TokensUsed int                `json:"tokens_used"`
-		Breakdown  tokenBreakdownJSON `json:"breakdown"`
-		Limit      int                `json:"limit,omitempty"`
-		Ratio      float64            `json:"ratio,omitempty"`
-		EndsAt     string             `json:"ends_at,omitempty"`
+		TokensUsed int                      `json:"tokens_used"`
+		Breakdown  usagejson.TokenBreakdown `json:"breakdown"`
+		Limit      int                      `json:"limit,omitempty"`
+		Ratio      float64                  `json:"ratio,omitempty"`
+		EndsAt     string                   `json:"ends_at,omitempty"`
 	} `json:"session"`
 	Weekly struct {
-		TokensUsed     int                            `json:"tokens_used"`
-		Limit          int                            `json:"limit,omitempty"`
-		Ratio          float64                        `json:"ratio,omitempty"`
-		SonnetTokens   int                            `json:"sonnet_tokens_used"`
-		SonnetLimit    int                            `json:"sonnet_limit,omitempty"`
-		SonnetRatio    float64                        `json:"sonnet_ratio,omitempty"`
-		ResetsAt       string                         `json:"resets_at"`
-		ModelBreakdown map[string]tokenBreakdownJSON  `json:"model_breakdown,omitempty"`
+		TokensUsed     int                                 `json:"tokens_used"`
+		Limit          int                                 `json:"limit,omitempty"`
+		Ratio          float64                             `json:"ratio,omitempty"`
+		SonnetTokens   int                                 `json:"sonnet_tokens_used"`
+		SonnetLimit    int                                 `json:"sonnet_limit,omitempty"`
+		SonnetRatio    float64                             `json:"sonnet_ratio,omitempty"`
+		ResetsAt       string                              `json:"resets_at"`
+		ModelBreakdown map[string]usagejson.TokenBreakdown `json:"model_breakdown,omitempty"`
 	} `json:"weekly"`
 }
 
@@ -105,7 +89,7 @@ func main() {
 	if jsonFlag {
 		out := jsonOutput{}
 		out.Session.TokensUsed = result.SessionTokens
-		out.Session.Breakdown = newTokenBreakdownJSON(result.SessionBreakdown)
+		out.Session.Breakdown = usagejson.FromBlocks(result.SessionBreakdown)
 		out.Session.Limit = result.SessionLimit
 		out.Session.Ratio = result.SessionRatio
 		if result.SessionEndsAt != nil {
@@ -118,12 +102,7 @@ func main() {
 		out.Weekly.SonnetLimit = result.WeeklySonnetLimit
 		out.Weekly.SonnetRatio = result.WeeklySonnetRatio
 		out.Weekly.ResetsAt = result.WeeklyResetsAt.In(tz.JST).Format(time.RFC3339)
-		if len(result.WeeklyModelBreakdown) > 0 {
-			out.Weekly.ModelBreakdown = make(map[string]tokenBreakdownJSON, len(result.WeeklyModelBreakdown))
-			for model, bd := range result.WeeklyModelBreakdown {
-				out.Weekly.ModelBreakdown[model] = newTokenBreakdownJSON(bd)
-			}
-		}
+		out.Weekly.ModelBreakdown = usagejson.MapFromBlocks(result.WeeklyModelBreakdown)
 
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")

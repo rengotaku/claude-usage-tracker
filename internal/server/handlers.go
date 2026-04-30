@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/rengotaku/claude-usage-tracker/internal/blocks"
 	"github.com/rengotaku/claude-usage-tracker/internal/repository"
 	"github.com/rengotaku/claude-usage-tracker/internal/tz"
+	"github.com/rengotaku/claude-usage-tracker/internal/usagejson"
 )
 
 // timeFormat for JSON output (JST).
@@ -26,16 +26,6 @@ func formatJST(t time.Time) string {
 // newPeriod builds a periodDTO from a [from, to] pair.
 func newPeriod(from, to time.Time) periodDTO {
 	return periodDTO{From: formatJST(from), To: formatJST(to)}
-}
-
-// toTokenBreakdown converts a blocks.TokenBreakdown to its DTO form.
-func toTokenBreakdown(b blocks.TokenBreakdown) tokenBreakdown {
-	return tokenBreakdown{
-		Input:         b.Input,
-		Output:        b.Output,
-		CacheCreation: b.CacheCreation,
-		CacheRead:     b.CacheRead,
-	}
 }
 
 // loadRange parses from/to query params and loads snapshots in that range.
@@ -110,23 +100,16 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 
 // --- /usage/snapshots ---
 
-type tokenBreakdown struct {
-	Input         int `json:"input"`
-	Output        int `json:"output"`
-	CacheCreation int `json:"cache_creation"`
-	CacheRead     int `json:"cache_read"`
-}
-
 type snapshotItem struct {
-	TakenAt              string                    `json:"taken_at"`
-	BlockStartedAt       string                    `json:"block_started_at"`
-	BlockEndedAt         string                    `json:"block_ended_at,omitempty"`
-	SessionTokens        int                       `json:"session_tokens"`
-	Tokens               tokenBreakdown            `json:"tokens"`
-	SessionRatio         float64                   `json:"session_ratio"`
-	WeeklyTokens         int                       `json:"weekly_tokens"`
-	WeeklySonnetTokens   int                       `json:"weekly_sonnet_tokens"`
-	WeeklyModelBreakdown map[string]tokenBreakdown `json:"weekly_model_breakdown,omitempty"`
+	TakenAt              string                              `json:"taken_at"`
+	BlockStartedAt       string                              `json:"block_started_at"`
+	BlockEndedAt         string                              `json:"block_ended_at,omitempty"`
+	SessionTokens        int                                 `json:"session_tokens"`
+	Tokens               usagejson.TokenBreakdown            `json:"tokens"`
+	SessionRatio         float64                             `json:"session_ratio"`
+	WeeklyTokens         int                                 `json:"weekly_tokens"`
+	WeeklySonnetTokens   int                                 `json:"weekly_sonnet_tokens"`
+	WeeklyModelBreakdown map[string]usagejson.TokenBreakdown `json:"weekly_model_breakdown,omitempty"`
 }
 
 type snapshotsResponse struct {
@@ -147,19 +130,14 @@ func (h *Handler) Snapshots(w http.ResponseWriter, r *http.Request) {
 	items := make([]snapshotItem, 0, len(snaps))
 	for _, s := range snaps {
 		item := snapshotItem{
-			TakenAt:            formatJST(s.TakenAt),
-			BlockStartedAt:     formatJST(s.BlockStartedAt),
-			SessionTokens:      s.TokensUsed,
-			Tokens:             toTokenBreakdown(s.Tokens),
-			SessionRatio:       s.UsageRatio,
-			WeeklyTokens:       s.WeeklyTokens,
-			WeeklySonnetTokens: s.WeeklySonnetTokens,
-		}
-		if len(s.WeeklyModelBreakdown) > 0 {
-			item.WeeklyModelBreakdown = make(map[string]tokenBreakdown, len(s.WeeklyModelBreakdown))
-			for model, bd := range s.WeeklyModelBreakdown {
-				item.WeeklyModelBreakdown[model] = toTokenBreakdown(bd)
-			}
+			TakenAt:              formatJST(s.TakenAt),
+			BlockStartedAt:       formatJST(s.BlockStartedAt),
+			SessionTokens:        s.TokensUsed,
+			Tokens:               usagejson.FromBlocks(s.Tokens),
+			SessionRatio:         s.UsageRatio,
+			WeeklyTokens:         s.WeeklyTokens,
+			WeeklySonnetTokens:   s.WeeklySonnetTokens,
+			WeeklyModelBreakdown: usagejson.MapFromBlocks(s.WeeklyModelBreakdown),
 		}
 		if s.BlockEndedAt != nil {
 			item.BlockEndedAt = formatJST(*s.BlockEndedAt)
